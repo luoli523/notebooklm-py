@@ -8,14 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Enhanced
-- **Multi-artifact audio downloads**: `download audio` command now supports:
+- **Multi-artifact downloads**: All download commands now support advanced multi-artifact features:
+  - `download audio` - Download all audio overviews with intelligent selection
+  - `download video` - Download all video overviews with intelligent selection
+  - `download infographic` - Download all infographics with intelligent selection
+  - `download slide-deck` - Download all slide decks with directory-based organization
+
+  Each command now includes:
   - Multiple artifact selection (--all flag)
   - Smart defaults (optional OUTPUT_PATH)
   - Intelligent filtering (--latest, --earliest, --name, --artifact-id)
-  - File conflict handling (--force, --no-clobber, auto-rename)
+  - File/directory conflict handling (--force, --no-clobber, auto-rename)
   - Preview mode (--dry-run)
   - Structured output (--json)
   - Safe filename generation from artifact titles
+  - Progress indicators for batch downloads
+  - Detailed result reporting (downloaded/skipped/failed)
 
 ### Added
 - `select_artifact()` helper for intelligent artifact selection
