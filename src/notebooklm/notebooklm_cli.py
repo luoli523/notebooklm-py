@@ -2833,15 +2833,22 @@ def note_rename(ctx, note_id, new_title, notebook_id):
                 # Get current note to preserve content
                 note = await client.get_note(nb_id, note_id)
                 if not note:
-                    return None
-                # Extract current content using parser
-                _, _, content = _parse_note(note)
-                return await client.update_note(nb_id, note_id, content=content, title=new_title)
+                    return None, "Note not found"
 
-        result = run_async(_rename())
-        if result is None:
-            console.print(f"[yellow]Note not found:[/yellow] {note_id}")
-        else:
+                # Extract content from note structure
+                content = ""
+                if len(note) > 1 and isinstance(note[1], list):
+                    inner = note[1]
+                    if len(inner) > 1 and isinstance(inner[1], str):
+                        content = inner[1]
+
+                await client.update_note(nb_id, note_id, content=content, title=new_title)
+                return True, None
+
+        result, error = run_async(_rename())
+        if error:
+            console.print(f"[yellow]{error}[/yellow]")
+        elif result:
             console.print(f"[green]Note renamed:[/green] {new_title}")
 
     except Exception as e:
