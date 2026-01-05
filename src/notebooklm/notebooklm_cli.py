@@ -618,11 +618,12 @@ def notebook_create(ctx, title):
 
 
 @notebook.command("delete")
-@click.argument("notebook_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.pass_context
 def notebook_delete(ctx, notebook_id, yes):
     """Delete a notebook."""
+    notebook_id = require_notebook(notebook_id)
     if not yes and not click.confirm(f"Delete notebook {notebook_id}?"):
         return
 
@@ -638,6 +639,10 @@ def notebook_delete(ctx, notebook_id, yes):
         success = run_async(_delete())
         if success:
             console.print(f"[green]Deleted notebook:[/green] {notebook_id}")
+            # Clear context if we deleted the current notebook
+            if get_current_notebook() == notebook_id:
+                clear_context()
+                console.print("[dim]Cleared current notebook context[/dim]")
         else:
             console.print("[yellow]Delete may have failed[/yellow]")
 
@@ -646,11 +651,12 @@ def notebook_delete(ctx, notebook_id, yes):
 
 
 @notebook.command("rename")
-@click.argument("notebook_id")
 @click.argument("new_title")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
-def notebook_rename(ctx, notebook_id, new_title):
+def notebook_rename(ctx, new_title, notebook_id):
     """Rename a notebook."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -669,10 +675,11 @@ def notebook_rename(ctx, notebook_id, new_title):
 
 
 @notebook.command("share")
-@click.argument("notebook_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
 def notebook_share(ctx, notebook_id):
     """Configure notebook sharing."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -693,10 +700,11 @@ def notebook_share(ctx, notebook_id):
 
 
 @notebook.command("summary")
-@click.argument("notebook_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
 def notebook_summary(ctx, notebook_id):
     """Get notebook summary."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -717,10 +725,11 @@ def notebook_summary(ctx, notebook_id):
 
 
 @notebook.command("analytics")
-@click.argument("notebook_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
 def notebook_analytics(ctx, notebook_id):
     """Get notebook analytics."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -758,24 +767,25 @@ def notebook_history(ctx, notebook_id, limit, clear):
 
 
 @notebook.command("ask")
-@click.argument("notebook_id")
 @click.argument("question")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.option("--conversation-id", "-c", default=None, help="Continue a conversation")
 @click.pass_context
-def notebook_ask(ctx, notebook_id, question, conversation_id):
+def notebook_ask(ctx, question, notebook_id, conversation_id):
     """Ask a notebook a question."""
     ctx.invoke(ask_shortcut, notebook_id=notebook_id, question=question, conversation_id=conversation_id)
 
 
 @notebook.command("research")
-@click.argument("notebook_id")
 @click.argument("query")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.option("--source", type=click.Choice(["web", "drive"]), default="web")
 @click.option("--mode", type=click.Choice(["fast", "deep"]), default="fast")
 @click.option("--import-all", is_flag=True, help="Import all found sources")
 @click.pass_context
-def notebook_research(ctx, notebook_id, query, source, mode, import_all):
+def notebook_research(ctx, query, notebook_id, source, mode, import_all):
     """Start a research session."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -1180,12 +1190,13 @@ def artifact_get(ctx, artifact_id, notebook_id):
 
 
 @artifact.command("rename")
-@click.argument("notebook_id")
 @click.argument("artifact_id")
 @click.argument("new_title")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
-def artifact_rename(ctx, notebook_id, artifact_id, new_title):
+def artifact_rename(ctx, artifact_id, new_title, notebook_id):
     """Rename an artifact."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -1205,12 +1216,13 @@ def artifact_rename(ctx, notebook_id, artifact_id, new_title):
 
 
 @artifact.command("delete")
-@click.argument("notebook_id")
 @click.argument("artifact_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.pass_context
-def artifact_delete(ctx, notebook_id, artifact_id, yes):
+def artifact_delete(ctx, artifact_id, notebook_id, yes):
     """Delete an artifact."""
+    notebook_id = require_notebook(notebook_id)
     if not yes and not click.confirm(f"Delete artifact {artifact_id}?"):
         return
 
@@ -1233,13 +1245,14 @@ def artifact_delete(ctx, notebook_id, artifact_id, yes):
 
 
 @artifact.command("export")
-@click.argument("notebook_id")
 @click.argument("artifact_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.option("--title", required=True, help="Title for exported document")
 @click.option("--type", "export_type", type=click.Choice(["docs", "sheets"]), default="docs")
 @click.pass_context
-def artifact_export(ctx, notebook_id, artifact_id, title, export_type):
+def artifact_export(ctx, artifact_id, notebook_id, title, export_type):
     """Export artifact to Google Docs/Sheets."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
@@ -1262,11 +1275,12 @@ def artifact_export(ctx, notebook_id, artifact_id, title, export_type):
 
 
 @artifact.command("poll")
-@click.argument("notebook_id")
 @click.argument("task_id")
+@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
 @click.pass_context
-def artifact_poll(ctx, notebook_id, task_id):
+def artifact_poll(ctx, task_id, notebook_id):
     """Poll generation status."""
+    notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)

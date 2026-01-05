@@ -56,10 +56,10 @@ class TestNotebookOperations:
 
 @requires_auth
 @pytest.mark.e2e
-class TestNotebookQuery:
+class TestNotebookAsk:
     @pytest.mark.asyncio
     @pytest.mark.slow
-    async def test_query_notebook(self, client, test_notebook_id):
-        result = await client.query(test_notebook_id, "What is this notebook about?")
+    async def test_ask_notebook(self, client, test_notebook_id):
+        result = await client.ask(test_notebook_id, "What is this notebook about?")
         assert "answer" in result
         assert "conversation_id" in result
