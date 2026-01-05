@@ -1048,6 +1048,9 @@ def source_add(ctx, content, notebook_id, source_type, title, mime_type):
 
         # Auto-detect source type if not specified
         detected_type = source_type
+        file_content = None  # For text-based files
+        file_title = title
+
         if detected_type is None:
             if content.startswith(("http://", "https://")):
                 # Check for YouTube URLs
@@ -1056,7 +1059,15 @@ def source_add(ctx, content, notebook_id, source_type, title, mime_type):
                 else:
                     detected_type = "url"
             elif Path(content).exists():
-                detected_type = "file"
+                file_path = Path(content)
+                suffix = file_path.suffix.lower()
+                # Text-based files: read content and add as text (workaround for broken file upload RPC)
+                if suffix in ('.txt', '.md', '.markdown', '.rst', '.text'):
+                    detected_type = "text"
+                    file_content = file_path.read_text()
+                    file_title = title or file_path.name
+                else:
+                    detected_type = "file"
             else:
                 # Default to URL for non-existent paths (might be a remote URL without scheme)
                 detected_type = "url"
@@ -1069,7 +1080,10 @@ def source_add(ctx, content, notebook_id, source_type, title, mime_type):
                 elif detected_type == "youtube":
                     return await service.add_url(nb_id, content)
                 elif detected_type == "text":
-                    return await service.add_text(nb_id, title or "Untitled", content)
+                    # Use file_content if we read from a file, otherwise use content directly
+                    text_content = file_content if file_content is not None else content
+                    text_title = file_title or "Untitled"
+                    return await service.add_text(nb_id, text_title, text_content)
                 elif detected_type == "file":
                     return await service.add_file(nb_id, content, mime_type)
 
