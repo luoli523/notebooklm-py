@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Enhanced
+- **Multi-artifact audio downloads**: `download audio` command now supports:
+  - Multiple artifact selection (--all flag)
+  - Smart defaults (optional OUTPUT_PATH)
+  - Intelligent filtering (--latest, --earliest, --name, --artifact-id)
+  - File conflict handling (--force, --no-clobber, auto-rename)
+  - Preview mode (--dry-run)
+  - Structured output (--json)
+  - Safe filename generation from artifact titles
+
+### Added
+- `select_artifact()` helper for intelligent artifact selection
+- `artifact_title_to_filename()` helper for safe filename conversion
+
 ## [0.1.0] - 2026-01-05
 
 ### Added

@@ -1654,25 +1654,287 @@ def download():
 
 
 @download.command("audio")
-@click.argument("output_path", type=click.Path())
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--artifact-id", help="Specific artifact ID")
+@click.argument("output_path", required=False, type=click.Path())
+@click.option("-n", "--notebook", help="Notebook ID (uses current context if not set)")
+@click.option("--latest", is_flag=True, default=True, help="Download latest (default)")
+@click.option("--earliest", is_flag=True, help="Download earliest")
+@click.option("--all", "download_all", is_flag=True, help="Download all artifacts")
+@click.option("--name", help="Filter by artifact title (fuzzy match)")
+@click.option("--artifact-id", help="Select by exact artifact ID")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON instead of text")
+@click.option("--dry-run", is_flag=True, help="Preview without downloading")
+@click.option("--force", is_flag=True, help="Overwrite existing files")
+@click.option("--no-clobber", is_flag=True, help="Skip if file exists")
 @click.pass_context
-def download_audio(ctx, output_path, notebook_id, artifact_id):
-    """Download audio to file."""
+def download_audio(ctx, output_path, notebook, latest, earliest, download_all, name, artifact_id, json_output, dry_run, force, no_clobber):
+    """Download audio overview(s) to file.
+
+    \b
+    Examples:
+      # Download latest audio to default filename
+      notebooklm download audio
+
+      # Download to specific path
+      notebooklm download audio my-podcast.mp3
+
+      # Download all audio files to directory
+      notebooklm download audio --all ./audio/
+
+      # Download specific artifact by name
+      notebooklm download audio --name "chapter 3"
+
+      # Preview without downloading
+      notebooklm download audio --all --dry-run
+    """
+    from .download_helpers import select_artifact, artifact_title_to_filename
+    from pathlib import Path
+
+    # Validate conflict flags
+    if force and no_clobber:
+        console.print("[red]Cannot specify both --force and --no-clobber[/red]")
+        raise SystemExit(1)
+
+    # Validate selection flags
+    if latest and earliest:
+        console.print("[red]Cannot specify both --latest and --earliest[/red]")
+        raise SystemExit(1)
+
+    if download_all and artifact_id:
+        console.print("[red]Cannot specify both --all and --artifact-id[/red]")
+        raise SystemExit(1)
+
     try:
-        nb_id = require_notebook(notebook_id)
+        nb_id = require_notebook(notebook)
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
         async def _download():
             async with NotebookLMClient(auth) as client:
-                return await client.download_audio(nb_id, output_path, artifact_id=artifact_id)
+                # Get all artifacts and filter for audio
+                all_artifacts = await client.list_artifacts(nb_id)
 
-        with console.status(f"Downloading audio..."):
-            result_path = run_async(_download())
+                # Filter: type=1 (audio), status=3 (completed)
+                audio_artifacts_raw = [
+                    a for a in all_artifacts
+                    if isinstance(a, list) and len(a) > 4 and a[2] == 1 and a[4] == 3
+                ]
 
-        console.print(f"[green]Audio saved to:[/green] {result_path}")
+                if not audio_artifacts_raw:
+                    return {"error": "No completed audio artifacts found"}
+
+                # Convert to dict format for select_artifact helper
+                audio_artifacts = [
+                    {"id": a[0], "title": a[1], "created_at": a[3] if len(a) > 3 else 0}
+                    for a in audio_artifacts_raw
+                ]
+
+                # Handle --all flag
+                if download_all:
+                    # Default directory for --all
+                    output_dir = Path(output_path) if output_path else Path("./audio")
+
+                    if dry_run:
+                        return {
+                            "dry_run": True,
+                            "operation": "download_all",
+                            "count": len(audio_artifacts),
+                            "output_dir": str(output_dir),
+                            "artifacts": [
+                                {
+                                    "id": a["id"],
+                                    "title": a["title"],
+                                    "filename": artifact_title_to_filename(a["title"], ".mp3", set())
+                                }
+                                for a in audio_artifacts
+                            ]
+                        }
+
+                    # Create output directory
+                    output_dir.mkdir(parents=True, exist_ok=True)
+
+                    results = []
+                    existing_files = set()
+
+                    for artifact in audio_artifacts:
+                        # Generate filename
+                        filename = artifact_title_to_filename(
+                            artifact["title"], ".mp3", existing_files
+                        )
+                        existing_files.add(filename)
+                        file_path = output_dir / filename
+
+                        # Check if file exists
+                        if file_path.exists():
+                            if no_clobber:
+                                results.append({
+                                    "id": artifact["id"],
+                                    "title": artifact["title"],
+                                    "filename": filename,
+                                    "status": "skipped",
+                                    "reason": "file exists"
+                                })
+                                continue
+                            elif not force:
+                                # Auto-rename
+                                counter = 2
+                                base = file_path.stem
+                                while file_path.exists():
+                                    filename = f"{base} ({counter}).mp3"
+                                    file_path = output_dir / filename
+                                    counter += 1
+
+                        # Download
+                        try:
+                            await client.download_audio(nb_id, str(file_path), artifact_id=artifact["id"])
+                            results.append({
+                                "id": artifact["id"],
+                                "title": artifact["title"],
+                                "filename": filename,
+                                "path": str(file_path),
+                                "status": "downloaded"
+                            })
+                        except Exception as e:
+                            results.append({
+                                "id": artifact["id"],
+                                "title": artifact["title"],
+                                "filename": filename,
+                                "status": "failed",
+                                "error": str(e)
+                            })
+
+                    return {
+                        "operation": "download_all",
+                        "output_dir": str(output_dir),
+                        "total": len(audio_artifacts),
+                        "results": results
+                    }
+
+                # Single artifact selection
+                try:
+                    selected, reason = select_artifact(
+                        audio_artifacts,
+                        latest=latest,
+                        earliest=earliest,
+                        name=name,
+                        artifact_id=artifact_id
+                    )
+                except ValueError as e:
+                    return {"error": str(e)}
+
+                # Determine output path
+                if not output_path:
+                    # Default: ./[artifact-title].mp3
+                    default_filename = artifact_title_to_filename(selected["title"], ".mp3", set())
+                    final_output_path = Path.cwd() / default_filename
+                else:
+                    final_output_path = Path(output_path)
+
+                if dry_run:
+                    return {
+                        "dry_run": True,
+                        "operation": "download_single",
+                        "artifact": {
+                            "id": selected["id"],
+                            "title": selected["title"],
+                            "selection_reason": reason
+                        },
+                        "output_path": str(final_output_path)
+                    }
+
+                # Check if file exists
+                if final_output_path.exists():
+                    if no_clobber:
+                        return {
+                            "error": f"File exists: {final_output_path}",
+                            "artifact": selected,
+                            "suggestion": "Use --force to overwrite or choose a different path"
+                        }
+                    elif not force:
+                        # Auto-rename
+                        counter = 2
+                        base = final_output_path.stem
+                        ext = final_output_path.suffix
+                        parent = final_output_path.parent
+                        while final_output_path.exists():
+                            final_output_path = parent / f"{base} ({counter}){ext}"
+                            counter += 1
+
+                # Download
+                try:
+                    result_path = await client.download_audio(
+                        nb_id, str(final_output_path), artifact_id=selected["id"]
+                    )
+                    return {
+                        "operation": "download_single",
+                        "artifact": {
+                            "id": selected["id"],
+                            "title": selected["title"],
+                            "selection_reason": reason
+                        },
+                        "output_path": result_path,
+                        "status": "downloaded"
+                    }
+                except Exception as e:
+                    return {
+                        "error": str(e),
+                        "artifact": selected
+                    }
+
+        result = run_async(_download())
+
+        # Handle JSON output
+        if json_output:
+            console.print(json.dumps(result, indent=2))
+            return
+
+        # Handle errors
+        if "error" in result:
+            console.print(f"[red]Error:[/red] {result['error']}")
+            if "suggestion" in result:
+                console.print(f"[dim]{result['suggestion']}[/dim]")
+            raise SystemExit(1)
+
+        # Handle dry-run
+        if result.get("dry_run"):
+            if result["operation"] == "download_all":
+                console.print(f"[yellow]DRY RUN:[/yellow] Would download {result['count']} audio files to: {result['output_dir']}")
+                console.print("\n[bold]Preview:[/bold]")
+                for art in result["artifacts"]:
+                    console.print(f"  {art['filename']} <- {art['title']}")
+            else:
+                console.print(f"[yellow]DRY RUN:[/yellow] Would download:")
+                console.print(f"  Artifact: {result['artifact']['title']}")
+                console.print(f"  Reason: {result['artifact']['selection_reason']}")
+                console.print(f"  Output: {result['output_path']}")
+            return
+
+        # Handle download_all results
+        if result.get("operation") == "download_all":
+            downloaded = [r for r in result["results"] if r["status"] == "downloaded"]
+            skipped = [r for r in result["results"] if r["status"] == "skipped"]
+            failed = [r for r in result["results"] if r["status"] == "failed"]
+
+            console.print(f"[bold]Downloaded {len(downloaded)}/{result['total']} audio files to:[/bold] {result['output_dir']}")
+
+            if downloaded:
+                console.print("\n[green]Downloaded:[/green]")
+                for r in downloaded:
+                    console.print(f"  {r['filename']} <- {r['title']}")
+
+            if skipped:
+                console.print("\n[yellow]Skipped:[/yellow]")
+                for r in skipped:
+                    console.print(f"  {r['filename']} ({r['reason']})")
+
+            if failed:
+                console.print("\n[red]Failed:[/red]")
+                for r in failed:
+                    console.print(f"  {r['filename']}: {r.get('error', 'unknown error')}")
+
+        # Handle single download
+        else:
+            console.print(f"[green]Audio saved to:[/green] {result['output_path']}")
+            console.print(f"[dim]Artifact: {result['artifact']['title']} ({result['artifact']['selection_reason']})[/dim]")
 
     except Exception as e:
         handle_error(e)
