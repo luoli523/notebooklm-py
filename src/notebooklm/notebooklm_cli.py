@@ -1720,6 +1720,17 @@ async def _download_artifacts_generic(
 
     async def _download() -> dict[str, Any]:
         async with NotebookLMClient(auth) as client:
+            # Setup download method dispatch
+            download_methods = {
+                "audio": client.download_audio,
+                "video": client.download_video,
+                "infographic": client.download_infographic,
+                "slide-deck": client.download_slide_deck,
+            }
+            download_fn = download_methods.get(artifact_type_name)
+            if not download_fn:
+                raise ValueError(f"Unknown artifact type: {artifact_type_name}")
+
             # Fetch artifacts
             all_artifacts = await client.list_artifacts(nb_id)
 
@@ -1839,15 +1850,12 @@ async def _download_artifacts_generic(
 
                     # Download
                     try:
+                        # For directory types, create the directory first
                         if is_directory_type:
                             item_path.mkdir(parents=True, exist_ok=True)
-                            await client.download_slide_deck(nb_id, str(item_path), artifact_id=artifact["id"])
-                        elif artifact_type_name == "audio":
-                            await client.download_audio(nb_id, str(item_path), artifact_id=artifact["id"])
-                        elif artifact_type_name == "video":
-                            await client.download_video(nb_id, str(item_path), artifact_id=artifact["id"])
-                        elif artifact_type_name == "infographic":
-                            await client.download_infographic(nb_id, str(item_path), artifact_id=artifact["id"])
+
+                        # Download using dispatch
+                        await download_fn(nb_id, str(item_path), artifact_id=artifact["id"])
 
                         results.append({
                             "id": artifact["id"],
@@ -1922,15 +1930,12 @@ async def _download_artifacts_generic(
 
             # Download
             try:
+                # For directory types, create the directory first
                 if is_directory_type:
                     final_path.mkdir(parents=True, exist_ok=True)
-                    result_path = await client.download_slide_deck(nb_id, str(final_path), artifact_id=selected["id"])
-                elif artifact_type_name == "audio":
-                    result_path = await client.download_audio(nb_id, str(final_path), artifact_id=selected["id"])
-                elif artifact_type_name == "video":
-                    result_path = await client.download_video(nb_id, str(final_path), artifact_id=selected["id"])
-                elif artifact_type_name == "infographic":
-                    result_path = await client.download_infographic(nb_id, str(final_path), artifact_id=selected["id"])
+
+                # Download using dispatch
+                result_path = await download_fn(nb_id, str(final_path), artifact_id=selected["id"])
 
                 return {
                     "operation": "download_single",
