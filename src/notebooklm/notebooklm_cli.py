@@ -2500,7 +2500,7 @@ async def _download_artifacts_generic(
     Returns:
         Result dictionary with operation details
     """
-    from .download_helpers import select_artifact, artifact_title_to_filename
+    from .cli.download_helpers import select_artifact, artifact_title_to_filename
     from pathlib import Path
     from typing import Any
 
