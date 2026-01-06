@@ -264,3 +264,22 @@ class TestStudyGuideGeneration:
     async def test_generate_study_guide(self, client, test_notebook_id):
         result = await client.generate_study_guide(test_notebook_id)
         assert result is not None or result is None
+
+
+@requires_auth
+@pytest.mark.e2e
+class TestReportSuggestions:
+    @pytest.mark.asyncio
+    async def test_suggest_reports(self, client, test_notebook_id):
+        from notebooklm.services.artifacts import ReportSuggestion
+
+        service = ArtifactService(client)
+        suggestions = await service.suggest_reports(test_notebook_id)
+
+        assert isinstance(suggestions, list)
+        if suggestions:
+            assert all(isinstance(s, ReportSuggestion) for s in suggestions)
+            for s in suggestions:
+                assert s.title
+                assert s.description
+                assert s.prompt

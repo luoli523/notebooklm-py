@@ -40,7 +40,13 @@ from .auth import (
     DEFAULT_STORAGE_PATH,
 )
 from .api_client import NotebookLMClient
-from .services import NotebookService, SourceService, ArtifactService
+from .services import (
+    NotebookService,
+    SourceService,
+    ArtifactService,
+    ConversationService,
+)
+from .services.conversation import ChatMode
 from .rpc import (
     AudioFormat,
     AudioLength,
@@ -83,7 +89,9 @@ ARTIFACT_TYPE_MAP = {
 }
 
 
-def get_artifact_type_display(artifact_type: int, variant: int = None, report_subtype: str = None) -> str:
+def get_artifact_type_display(
+    artifact_type: int, variant: int = None, report_subtype: str = None
+) -> str:
     """Get display string for artifact type.
 
     Args:
@@ -131,27 +139,27 @@ def detect_source_type(src: list) -> str:
         url_field = src[2][7]
         if url_field and isinstance(url_field, list) and len(url_field) > 0:
             url = url_field[0]
-            if 'youtube.com' in url or 'youtu.be' in url:
-                return '🎥 YouTube'
-            return '🔗 Web URL'
+            if "youtube.com" in url or "youtu.be" in url:
+                return "🎥 YouTube"
+            return "🔗 Web URL"
 
     # Check title for file extension
-    title = src[1] if len(src) > 1 else ''
+    title = src[1] if len(src) > 1 else ""
     if title:
-        if title.endswith('.pdf'):
-            return '📄 PDF'
-        elif title.endswith(('.txt', '.md', '.doc', '.docx')):
-            return '📝 Text File'
-        elif title.endswith(('.xls', '.xlsx', '.csv')):
-            return '📊 Spreadsheet'
+        if title.endswith(".pdf"):
+            return "📄 PDF"
+        elif title.endswith((".txt", ".md", ".doc", ".docx")):
+            return "📝 Text File"
+        elif title.endswith((".xls", ".xlsx", ".csv")):
+            return "📊 Spreadsheet"
 
     # Check for file size indicator (uploaded files have src[2][1] as size)
     if len(src) > 2 and isinstance(src[2], list) and len(src[2]) > 1:
         if isinstance(src[2][1], int) and src[2][1] > 0:
-            return '📎 Upload'
+            return "📎 Upload"
 
     # Default to pasted text
-    return '📝 Pasted Text'
+    return "📝 Pasted Text"
 
 
 def get_source_type_display(source_type: str) -> str:
@@ -196,7 +204,7 @@ def set_current_notebook(
     notebook_id: str,
     title: str | None = None,
     is_owner: bool | None = None,
-    created_at: str | None = None
+    created_at: str | None = None,
 ):
     """Set the current notebook context."""
     CONTEXT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -249,7 +257,9 @@ def require_notebook(notebook_id: str | None) -> str:
     current = get_current_notebook()
     if current:
         return current
-    console.print("[red]No notebook specified. Use 'notebooklm use <id>' to set context or provide notebook_id.[/red]")
+    console.print(
+        "[red]No notebook specified. Use 'notebooklm use <id>' to set context or provide notebook_id.[/red]"
+    )
     raise SystemExit(1)
 
 
@@ -397,6 +407,7 @@ def use_notebook(ctx, notebook_id):
         async def _get():
             async with NotebookLMClient(auth) as client:
                 from .services.notebooks import NotebookService
+
                 service = NotebookService(client)
                 return await service.get(notebook_id)
 
@@ -463,7 +474,9 @@ def status():
             if conversation_id:
                 table.add_row("Conversation", conversation_id)
             else:
-                table.add_row("Conversation", "[dim]None (will auto-select on next ask)[/dim]")
+                table.add_row(
+                    "Conversation", "[dim]None (will auto-select on next ask)[/dim]"
+                )
             console.print(table)
         except (json.JSONDecodeError, IOError):
             table = Table(title="Current Context")
@@ -476,7 +489,9 @@ def status():
             table.add_row("Conversation", "[dim]None[/dim]")
             console.print(table)
     else:
-        console.print("[yellow]No notebook selected. Use 'notebooklm use <id>' to set one.[/yellow]")
+        console.print(
+            "[yellow]No notebook selected. Use 'notebooklm use <id>' to set one.[/yellow]"
+        )
 
 
 @cli.command("clear")
@@ -536,7 +551,9 @@ def create_notebook_shortcut(ctx, title):
                 return await service.create(title)
 
         notebook = run_async(_create())
-        console.print(f"[green]Created notebook:[/green] {notebook.id} - {notebook.title}")
+        console.print(
+            f"[green]Created notebook:[/green] {notebook.id} - {notebook.title}"
+        )
 
     except Exception as e:
         handle_error(e)
@@ -544,9 +561,19 @@ def create_notebook_shortcut(ctx, title):
 
 @cli.command("ask")
 @click.argument("question")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--conversation-id", "-c", default=None, help="Continue a specific conversation")
-@click.option("--new", "new_conversation", is_flag=True, help="Start a new conversation")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--conversation-id", "-c", default=None, help="Continue a specific conversation"
+)
+@click.option(
+    "--new", "new_conversation", is_flag=True, help="Start a new conversation"
+)
 @click.pass_context
 def ask_shortcut(ctx, question, notebook_id, conversation_id, new_conversation):
     """Ask a notebook a question (shortcut for 'notebook ask').
@@ -587,8 +614,14 @@ def ask_shortcut(ctx, question, notebook_id, conversation_id, new_conversation):
                     # Parse: [[['conv_id'], ...]]
                     if history and history[0]:
                         last_conv = history[0][-1]  # Get last conversation
-                        effective_conv_id = last_conv[0] if isinstance(last_conv, list) else str(last_conv)
-                        console.print(f"[dim]Continuing conversation {effective_conv_id[:8]}...[/dim]")
+                        effective_conv_id = (
+                            last_conv[0]
+                            if isinstance(last_conv, list)
+                            else str(last_conv)
+                        )
+                        console.print(
+                            f"[dim]Continuing conversation {effective_conv_id[:8]}...[/dim]"
+                        )
                 except Exception:
                     # History fetch failed, start new conversation
                     pass
@@ -608,7 +641,9 @@ def ask_shortcut(ctx, question, notebook_id, conversation_id, new_conversation):
         console.print(f"[bold cyan]Answer:[/bold cyan]")
         console.print(result["answer"])
         if result.get("is_follow_up"):
-            console.print(f"\n[dim]Conversation: {result['conversation_id']} (turn {result.get('turn_number', '?')})[/dim]")
+            console.print(
+                f"\n[dim]Conversation: {result['conversation_id']} (turn {result.get('turn_number', '?')})[/dim]"
+            )
         else:
             console.print(f"\n[dim]New conversation: {result['conversation_id']}[/dim]")
 
@@ -617,7 +652,13 @@ def ask_shortcut(ctx, question, notebook_id, conversation_id, new_conversation):
 
 
 @cli.command("history")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--limit", "-l", default=20, help="Number of messages")
 @click.option("--clear", is_flag=True, help="Clear local conversation cache")
 @click.pass_context
@@ -674,10 +715,14 @@ def history_shortcut(ctx, notebook_id, limit, clear):
                     table.add_column("#", style="dim")
                     table.add_column("Conversation ID", style="cyan")
                     for i, conv in enumerate(conversations, 1):
-                        conv_id = conv[0] if isinstance(conv, list) and conv else str(conv)
+                        conv_id = (
+                            conv[0] if isinstance(conv, list) and conv else str(conv)
+                        )
                         table.add_row(str(i), conv_id)
                     console.print(table)
-                    console.print(f"\n[dim]Note: Only conversation IDs available. Use 'notebooklm ask -c <id>' to continue.[/dim]")
+                    console.print(
+                        f"\n[dim]Note: Only conversation IDs available. Use 'notebooklm ask -c <id>' to continue.[/dim]"
+                    )
                 else:
                     console.print("[yellow]No conversations found[/yellow]")
             except (IndexError, TypeError):
@@ -730,7 +775,13 @@ def notebook_create(ctx, title):
 
 
 @notebook.command("delete")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.pass_context
 def notebook_delete(ctx, notebook_id, yes):
@@ -764,7 +815,13 @@ def notebook_delete(ctx, notebook_id, yes):
 
 @notebook.command("rename")
 @click.argument("new_title")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def notebook_rename(ctx, new_title, notebook_id):
     """Rename a notebook."""
@@ -787,7 +844,13 @@ def notebook_rename(ctx, new_title, notebook_id):
 
 
 @notebook.command("share")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def notebook_share(ctx, notebook_id):
     """Configure notebook sharing."""
@@ -812,10 +875,23 @@ def notebook_share(ctx, notebook_id):
 
 
 @notebook.command("summary")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option("--topics", is_flag=True, help="Include suggested topics")
 @click.pass_context
-def notebook_summary(ctx, notebook_id):
-    """Get notebook summary."""
+def notebook_summary(ctx, notebook_id, topics):
+    """Get notebook summary with AI-generated insights.
+
+    \b
+    Examples:
+      notebooklm notebook summary              # Summary only
+      notebooklm notebook summary --topics     # With suggested topics
+    """
     notebook_id = require_notebook(notebook_id)
     try:
         cookies, csrf, session_id = get_client(ctx)
@@ -823,12 +899,19 @@ def notebook_summary(ctx, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                return await client.get_summary(notebook_id)
+                service = NotebookService(client)
+                return await service.get_description(notebook_id)
 
-        summary = run_async(_get())
-        if summary:
+        description = run_async(_get())
+        if description and description.summary:
             console.print("[bold cyan]Summary:[/bold cyan]")
-            console.print(summary)
+            console.print(description.summary)
+
+            if topics and description.suggested_topics:
+                console.print("\n[bold cyan]Suggested Topics:[/bold cyan]")
+                for i, topic in enumerate(description.suggested_topics, 1):
+                    console.print(f"  {i}. {topic.question}")
+
         else:
             console.print("[yellow]No summary available[/yellow]")
 
@@ -837,7 +920,13 @@ def notebook_summary(ctx, notebook_id):
 
 
 @notebook.command("analytics")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def notebook_analytics(ctx, notebook_id):
     """Get notebook analytics."""
@@ -862,7 +951,13 @@ def notebook_analytics(ctx, notebook_id):
 
 
 @notebook.command("history")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--limit", "-l", default=20, help="Number of messages")
 @click.option("--clear", is_flag=True, help="Clear local conversation cache")
 @click.pass_context
@@ -880,18 +975,138 @@ def notebook_history(ctx, notebook_id, limit, clear):
 
 @notebook.command("ask")
 @click.argument("question")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--conversation-id", "-c", default=None, help="Continue a specific conversation")
-@click.option("--new", "new_conversation", is_flag=True, help="Start a new conversation")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--conversation-id", "-c", default=None, help="Continue a specific conversation"
+)
+@click.option(
+    "--new", "new_conversation", is_flag=True, help="Start a new conversation"
+)
 @click.pass_context
 def notebook_ask(ctx, question, notebook_id, conversation_id, new_conversation):
     """Ask a notebook a question."""
-    ctx.invoke(ask_shortcut, notebook_id=notebook_id, question=question, conversation_id=conversation_id, new_conversation=new_conversation)
+    ctx.invoke(
+        ask_shortcut,
+        notebook_id=notebook_id,
+        question=question,
+        conversation_id=conversation_id,
+        new_conversation=new_conversation,
+    )
+
+
+@notebook.command("configure")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--mode",
+    "chat_mode",
+    type=click.Choice(["default", "learning-guide", "concise", "detailed"]),
+    default=None,
+    help="Predefined chat mode",
+)
+@click.option(
+    "--persona", default=None, help="Custom persona prompt (up to 10,000 chars)"
+)
+@click.option(
+    "--response-length",
+    type=click.Choice(["default", "longer", "shorter"]),
+    default=None,
+    help="Response verbosity",
+)
+@click.pass_context
+def notebook_configure(ctx, notebook_id, chat_mode, persona, response_length):
+    """Configure chat persona and response settings.
+
+    \b
+    Modes:
+      default        General purpose (default behavior)
+      learning-guide Educational focus with learning-oriented responses
+      concise        Brief, to-the-point responses
+      detailed       Verbose, comprehensive responses
+
+    \b
+    Examples:
+      notebooklm notebook configure --mode learning-guide
+      notebooklm notebook configure --persona "Act as a chemistry tutor"
+      notebooklm notebook configure --mode detailed --response-length longer
+    """
+    try:
+        nb_id = require_notebook(notebook_id)
+        cookies, csrf, session_id = get_client(ctx)
+        auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
+
+        async def _configure():
+            from .rpc import ChatGoal, ChatResponseLength
+
+            async with NotebookLMClient(auth) as client:
+                service = ConversationService(client)
+
+                if chat_mode:
+                    mode_map = {
+                        "default": ChatMode.DEFAULT,
+                        "learning-guide": ChatMode.LEARNING_GUIDE,
+                        "concise": ChatMode.CONCISE,
+                        "detailed": ChatMode.DETAILED,
+                    }
+                    await service.set_mode(nb_id, mode_map[chat_mode])
+                    return f"Chat mode set to: {chat_mode}"
+
+                goal = ChatGoal.CUSTOM if persona else None
+                length = None
+                if response_length:
+                    length_map = {
+                        "default": ChatResponseLength.DEFAULT,
+                        "longer": ChatResponseLength.LONGER,
+                        "shorter": ChatResponseLength.SHORTER,
+                    }
+                    length = length_map[response_length]
+
+                await service.configure(
+                    nb_id, goal=goal, response_length=length, custom_prompt=persona
+                )
+
+                parts = []
+                if persona:
+                    parts.append(
+                        f'persona: "{persona[:50]}..."'
+                        if len(persona) > 50
+                        else f'persona: "{persona}"'
+                    )
+                if response_length:
+                    parts.append(f"response length: {response_length}")
+                return (
+                    f"Chat configured: {', '.join(parts)}"
+                    if parts
+                    else "Chat configured (no changes)"
+                )
+
+        result = run_async(_configure())
+        console.print(f"[green]{result}[/green]")
+
+    except Exception as e:
+        handle_error(e)
 
 
 @notebook.command("research")
 @click.argument("query")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--source", type=click.Choice(["web", "drive"]), default="web")
 @click.option("--mode", type=click.Choice(["fast", "deep"]), default="fast")
 @click.option("--import-all", is_flag=True, help="Import all found sources")
@@ -905,7 +1120,9 @@ def notebook_research(ctx, query, notebook_id, source, mode, import_all):
 
         async def _research():
             async with NotebookLMClient(auth) as client:
-                console.print(f"[yellow]Starting {mode} research on {source}...[/yellow]")
+                console.print(
+                    f"[yellow]Starting {mode} research on {source}...[/yellow]"
+                )
                 result = await client.start_research(notebook_id, query, source, mode)
                 if not result:
                     return None, None
@@ -914,6 +1131,7 @@ def notebook_research(ctx, query, notebook_id, source, mode, import_all):
                 console.print(f"[dim]Task ID: {task_id}[/dim]")
 
                 import time
+
                 for _ in range(60):
                     status = await client.poll_research(notebook_id)
                     if status.get("status") == "completed":
@@ -935,9 +1153,12 @@ def notebook_research(ctx, query, notebook_id, source, mode, import_all):
             console.print(f"\n[green]Found {len(sources)} sources[/green]")
 
             if import_all and sources and task_id:
+
                 async def _import():
                     async with NotebookLMClient(auth) as client:
-                        return await client.import_research_sources(notebook_id, task_id, sources)
+                        return await client.import_research_sources(
+                            notebook_id, task_id, sources
+                        )
 
                 imported = run_async(_import())
                 console.print(f"[green]Imported {len(imported)} sources[/green]")
@@ -973,7 +1194,9 @@ def notebook_featured(ctx, limit):
 
         for proj in projects:
             if isinstance(proj, list) and len(proj) > 0:
-                table.add_row(str(proj[0] or "-"), str(proj[1] if len(proj) > 1 else "-"))
+                table.add_row(
+                    str(proj[0] or "-"), str(proj[1] if len(proj) > 1 else "-")
+                )
 
         console.print(table)
 
@@ -1003,7 +1226,13 @@ def source():
 
 
 @source.command("list")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def source_list(ctx, notebook_id):
     """List all sources in a notebook."""
@@ -1015,6 +1244,7 @@ def source_list(ctx, notebook_id):
         async def _list():
             async with NotebookLMClient(auth) as client:
                 from .services.sources import SourceService
+
                 service = SourceService(client)
                 return await service.list(nb_id)
 
@@ -1028,7 +1258,9 @@ def source_list(ctx, notebook_id):
 
         for src in sources:
             type_display = get_source_type_display(src.source_type)
-            created = src.created_at.strftime("%Y-%m-%d %H:%M") if src.created_at else "-"
+            created = (
+                src.created_at.strftime("%Y-%m-%d %H:%M") if src.created_at else "-"
+            )
             table.add_row(src.id, src.title or "-", type_display, created)
 
         console.print(table)
@@ -1039,9 +1271,20 @@ def source_list(ctx, notebook_id):
 
 @source.command("add")
 @click.argument("content")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--type", "source_type", type=click.Choice(["url", "text", "file", "youtube"]), default=None,
-              help="Source type (auto-detected if not specified)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--type",
+    "source_type",
+    type=click.Choice(["url", "text", "file", "youtube"]),
+    default=None,
+    help="Source type (auto-detected if not specified)",
+)
 @click.option("--title", help="Title for text sources")
 @click.option("--mime-type", help="MIME type for file sources")
 @click.pass_context
@@ -1084,7 +1327,7 @@ def source_add(ctx, content, notebook_id, source_type, title, mime_type):
                 file_path = Path(content)
                 suffix = file_path.suffix.lower()
                 # Text-based files: read content and add as text (workaround for broken file upload RPC)
-                if suffix in ('.txt', '.md', '.markdown', '.rst', '.text'):
+                if suffix in (".txt", ".md", ".markdown", ".rst", ".text"):
                     detected_type = "text"
                     file_content = file_path.read_text()
                     file_title = title or file_path.name
@@ -1121,7 +1364,13 @@ def source_add(ctx, content, notebook_id, source_type, title, mime_type):
 
 @source.command("get")
 @click.argument("source_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def source_get(ctx, source_id, notebook_id):
     """Get source details."""
@@ -1133,6 +1382,7 @@ def source_get(ctx, source_id, notebook_id):
         async def _get():
             async with NotebookLMClient(auth) as client:
                 from .services.sources import SourceService
+
                 service = SourceService(client)
                 return await service.get(nb_id, source_id)
 
@@ -1140,11 +1390,15 @@ def source_get(ctx, source_id, notebook_id):
         if source:
             console.print(f"[bold cyan]Source:[/bold cyan] {source.id}")
             console.print(f"[bold]Title:[/bold] {source.title}")
-            console.print(f"[bold]Type:[/bold] {get_source_type_display(source.source_type)}")
+            console.print(
+                f"[bold]Type:[/bold] {get_source_type_display(source.source_type)}"
+            )
             if source.url:
                 console.print(f"[bold]URL:[/bold] {source.url}")
             if source.created_at:
-                console.print(f"[bold]Created:[/bold] {source.created_at.strftime('%Y-%m-%d %H:%M')}")
+                console.print(
+                    f"[bold]Created:[/bold] {source.created_at.strftime('%Y-%m-%d %H:%M')}"
+                )
         else:
             console.print("[yellow]Source not found[/yellow]")
 
@@ -1154,7 +1408,13 @@ def source_get(ctx, source_id, notebook_id):
 
 @source.command("delete")
 @click.argument("source_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.pass_context
 def source_delete(ctx, source_id, notebook_id, yes):
@@ -1185,7 +1445,13 @@ def source_delete(ctx, source_id, notebook_id, yes):
 @source.command("rename")
 @click.argument("source_id")
 @click.argument("new_title")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def source_rename(ctx, source_id, new_title, notebook_id):
     """Rename a source."""
@@ -1197,6 +1463,7 @@ def source_rename(ctx, source_id, new_title, notebook_id):
         async def _rename():
             async with NotebookLMClient(auth) as client:
                 from .services.sources import SourceService
+
                 service = SourceService(client)
                 return await service.rename(nb_id, source_id, new_title)
 
@@ -1210,7 +1477,13 @@ def source_rename(ctx, source_id, new_title, notebook_id):
 
 @source.command("refresh")
 @click.argument("source_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def source_refresh(ctx, source_id, notebook_id):
     """Refresh a URL/Drive source."""
@@ -1222,6 +1495,7 @@ def source_refresh(ctx, source_id, notebook_id):
         async def _refresh():
             async with NotebookLMClient(auth) as client:
                 from .services.sources import SourceService
+
                 service = SourceService(client)
                 return await service.refresh(nb_id, source_id)
 
@@ -1233,6 +1507,55 @@ def source_refresh(ctx, source_id, notebook_id):
             console.print(f"[bold]Title:[/bold] {source.title}")
         else:
             console.print("[yellow]Refresh returned no result[/yellow]")
+
+    except Exception as e:
+        handle_error(e)
+
+
+@source.command("add-drive")
+@click.argument("file_id")
+@click.argument("title")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--mime-type",
+    type=click.Choice(["google-doc", "google-slides", "google-sheets", "pdf"]),
+    default="google-doc",
+    help="Document type (default: google-doc)",
+)
+@click.pass_context
+def source_add_drive(ctx, file_id, title, notebook_id, mime_type):
+    """Add a Google Drive document as a source."""
+    try:
+        from .rpc import DriveMimeType
+
+        nb_id = require_notebook(notebook_id)
+        cookies, csrf, session_id = get_client(ctx)
+        auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
+
+        mime_map = {
+            "google-doc": DriveMimeType.GOOGLE_DOC.value,
+            "google-slides": DriveMimeType.GOOGLE_SLIDES.value,
+            "google-sheets": DriveMimeType.GOOGLE_SHEETS.value,
+            "pdf": DriveMimeType.PDF.value,
+        }
+        mime = mime_map[mime_type]
+
+        async def _add():
+            async with NotebookLMClient(auth) as client:
+                service = SourceService(client)
+                return await service.add_drive_file(nb_id, file_id, title, mime)
+
+        with console.status("Adding Drive source..."):
+            source = run_async(_add())
+
+        console.print(f"[green]Added Drive source:[/green] {source.id}")
+        console.print(f"[bold]Title:[/bold] {source.title}")
 
     except Exception as e:
         handle_error(e)
@@ -1260,12 +1583,32 @@ def artifact():
 
 
 @artifact.command("list")
-@click.option("-n", "--notebook", "notebook_id", default=None,
-              help="Notebook ID (uses current if not set)")
-@click.option("--type", "artifact_type",
-              type=click.Choice(["all", "video", "slide-deck", "quiz", "flashcard",
-                                "infographic", "data-table", "mind-map", "report"]),
-              default="all", help="Filter by type")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--type",
+    "artifact_type",
+    type=click.Choice(
+        [
+            "all",
+            "video",
+            "slide-deck",
+            "quiz",
+            "flashcard",
+            "infographic",
+            "data-table",
+            "mind-map",
+            "report",
+        ]
+    ),
+    default="all",
+    help="Filter by type",
+)
 @click.pass_context
 def artifact_list(ctx, notebook_id, artifact_type):
     """List artifacts in a notebook."""
@@ -1275,11 +1618,14 @@ def artifact_list(ctx, notebook_id, artifact_type):
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
         # Get type filter (None for "all", enum value for specific types)
-        type_filter = None if artifact_type == "all" else ARTIFACT_TYPE_MAP.get(artifact_type)
+        type_filter = (
+            None if artifact_type == "all" else ARTIFACT_TYPE_MAP.get(artifact_type)
+        )
 
         async def _list():
             async with NotebookLMClient(auth) as client:
                 from .services.artifacts import ArtifactService, Artifact
+
                 service = ArtifactService(client)
                 artifacts = await service.list(nb_id, artifact_type=type_filter)
 
@@ -1293,7 +1639,11 @@ def artifact_list(ctx, notebook_id, artifact_type):
                             # Mind map structure: [id, [id, json_content, metadata, None, title], ...]
                             # Title is at mm[1][4]
                             title = "Mind Map"
-                            if len(mm) > 1 and isinstance(mm[1], list) and len(mm[1]) > 4:
+                            if (
+                                len(mm) > 1
+                                and isinstance(mm[1], list)
+                                and len(mm[1]) > 4
+                            ):
                                 title = mm[1][4] or "Mind Map"
                             # Create Artifact-like object for mind map
                             mm_artifact = Artifact(
@@ -1322,9 +1672,19 @@ def artifact_list(ctx, notebook_id, artifact_type):
         table.add_column("Status", style="yellow")
 
         for art in artifacts:
-            type_display = get_artifact_type_display(art.artifact_type, art.variant, art.report_subtype)
-            created = art.created_at.strftime("%Y-%m-%d %H:%M") if art.created_at else "-"
-            status = "completed" if art.is_completed else "processing" if art.is_processing else str(art.status)
+            type_display = get_artifact_type_display(
+                art.artifact_type, art.variant, art.report_subtype
+            )
+            created = (
+                art.created_at.strftime("%Y-%m-%d %H:%M") if art.created_at else "-"
+            )
+            status = (
+                "completed"
+                if art.is_completed
+                else "processing"
+                if art.is_processing
+                else str(art.status)
+            )
             table.add_row(art.id, art.title, type_display, created, status)
 
         console.print(table)
@@ -1335,8 +1695,13 @@ def artifact_list(ctx, notebook_id, artifact_type):
 
 @artifact.command("get")
 @click.argument("artifact_id")
-@click.option("-n", "--notebook", "notebook_id", default=None,
-              help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def artifact_get(ctx, artifact_id, notebook_id):
     """Get artifact details."""
@@ -1348,6 +1713,7 @@ def artifact_get(ctx, artifact_id, notebook_id):
         async def _get():
             async with NotebookLMClient(auth) as client:
                 from .services.artifacts import ArtifactService
+
                 service = ArtifactService(client)
                 return await service.get(nb_id, artifact_id)
 
@@ -1355,10 +1721,16 @@ def artifact_get(ctx, artifact_id, notebook_id):
         if artifact:
             console.print(f"[bold cyan]Artifact:[/bold cyan] {artifact.id}")
             console.print(f"[bold]Title:[/bold] {artifact.title}")
-            console.print(f"[bold]Type:[/bold] {get_artifact_type_display(artifact.artifact_type, artifact.variant, artifact.report_subtype)}")
-            console.print(f"[bold]Status:[/bold] {'completed' if artifact.is_completed else 'processing' if artifact.is_processing else str(artifact.status)}")
+            console.print(
+                f"[bold]Type:[/bold] {get_artifact_type_display(artifact.artifact_type, artifact.variant, artifact.report_subtype)}"
+            )
+            console.print(
+                f"[bold]Status:[/bold] {'completed' if artifact.is_completed else 'processing' if artifact.is_processing else str(artifact.status)}"
+            )
             if artifact.created_at:
-                console.print(f"[bold]Created:[/bold] {artifact.created_at.strftime('%Y-%m-%d %H:%M')}")
+                console.print(
+                    f"[bold]Created:[/bold] {artifact.created_at.strftime('%Y-%m-%d %H:%M')}"
+                )
         else:
             console.print("[yellow]Artifact not found[/yellow]")
 
@@ -1369,7 +1741,13 @@ def artifact_get(ctx, artifact_id, notebook_id):
 @artifact.command("rename")
 @click.argument("artifact_id")
 @click.argument("new_title")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def artifact_rename(ctx, artifact_id, new_title, notebook_id):
     """Rename an artifact."""
@@ -1389,6 +1767,7 @@ def artifact_rename(ctx, artifact_id, new_title, notebook_id):
 
                 # Regular artifact - use rename_artifact
                 from .services.artifacts import ArtifactService
+
                 service = ArtifactService(client)
                 return await service.rename(notebook_id, artifact_id, new_title)
 
@@ -1402,7 +1781,13 @@ def artifact_rename(ctx, artifact_id, new_title, notebook_id):
 
 @artifact.command("delete")
 @click.argument("artifact_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.pass_context
 def artifact_delete(ctx, artifact_id, notebook_id, yes):
@@ -1425,6 +1810,7 @@ def artifact_delete(ctx, artifact_id, notebook_id, yes):
 
                 # Regular artifact
                 from .services.artifacts import ArtifactService
+
                 service = ArtifactService(client)
                 await service.delete(notebook_id, artifact_id)
                 return "artifact"
@@ -1435,7 +1821,9 @@ def artifact_delete(ctx, artifact_id, notebook_id, yes):
         result = run_async(_delete())
         if result == "mind_map":
             console.print(f"[yellow]Cleared mind map:[/yellow] {artifact_id}")
-            console.print("[dim]Note: Mind maps are cleared, not removed. Google may garbage collect them later.[/dim]")
+            console.print(
+                "[dim]Note: Mind maps are cleared, not removed. Google may garbage collect them later.[/dim]"
+            )
         else:
             console.print(f"[green]Deleted artifact:[/green] {artifact_id}")
 
@@ -1445,9 +1833,17 @@ def artifact_delete(ctx, artifact_id, notebook_id, yes):
 
 @artifact.command("export")
 @click.argument("artifact_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--title", required=True, help="Title for exported document")
-@click.option("--type", "export_type", type=click.Choice(["docs", "sheets"]), default="docs")
+@click.option(
+    "--type", "export_type", type=click.Choice(["docs", "sheets"]), default="docs"
+)
 @click.pass_context
 def artifact_export(ctx, artifact_id, notebook_id, title, export_type):
     """Export artifact to Google Docs/Sheets."""
@@ -1460,7 +1856,9 @@ def artifact_export(ctx, artifact_id, notebook_id, title, export_type):
             async with NotebookLMClient(auth) as client:
                 artifact = await client.get_artifact(notebook_id, artifact_id)
                 content = str(artifact) if artifact else ""
-                return await client.export_artifact(notebook_id, artifact_id, content, title, export_type)
+                return await client.export_artifact(
+                    notebook_id, artifact_id, content, title, export_type
+                )
 
         result = run_async(_export())
         if result:
@@ -1475,7 +1873,13 @@ def artifact_export(ctx, artifact_id, notebook_id, title, export_type):
 
 @artifact.command("poll")
 @click.argument("task_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def artifact_poll(ctx, task_id, notebook_id):
     """Poll generation status."""
@@ -1491,6 +1895,61 @@ def artifact_poll(ctx, task_id, notebook_id):
         status = run_async(_poll())
         console.print("[bold cyan]Task Status:[/bold cyan]")
         console.print(status)
+
+    except Exception as e:
+        handle_error(e)
+
+
+@artifact.command("suggestions")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option("--source", "source_ids", multiple=True, help="Limit to specific sources")
+@click.option("--json", "json_output", is_flag=True, help="Output JSON format")
+@click.pass_context
+def artifact_suggestions(ctx, notebook_id, source_ids, json_output):
+    """Get AI-suggested report topics based on notebook content."""
+    try:
+        nb_id = require_notebook(notebook_id)
+        cookies, csrf, session_id = get_client(ctx)
+        auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
+
+        async def _suggest():
+            async with NotebookLMClient(auth) as client:
+                service = ArtifactService(client)
+                ids = list(source_ids) if source_ids else None
+                return await service.suggest_reports(nb_id, ids)
+
+        suggestions = run_async(_suggest())
+
+        if not suggestions:
+            console.print("[yellow]No suggestions available[/yellow]")
+            return
+
+        if json_output:
+            data = [
+                {"title": s.title, "description": s.description, "prompt": s.prompt}
+                for s in suggestions
+            ]
+            console.print(json.dumps(data, indent=2))
+            return
+
+        table = Table(title="Suggested Reports")
+        table.add_column("#", style="dim")
+        table.add_column("Title", style="green")
+        table.add_column("Description")
+
+        for i, suggestion in enumerate(suggestions, 1):
+            table.add_row(str(i), suggestion.title, suggestion.description)
+
+        console.print(table)
+        console.print(
+            '\n[dim]Use the prompt with: notebooklm generate report "<prompt>"[/dim]'
+        )
 
     except Exception as e:
         handle_error(e)
@@ -1532,13 +1991,33 @@ def generate():
 
 @generate.command("audio")
 @click.argument("description", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--format", "audio_format", type=click.Choice(["deep-dive", "brief", "critique", "debate"]), default="deep-dive")
-@click.option("--length", "audio_length", type=click.Choice(["short", "default", "long"]), default="default")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--format",
+    "audio_format",
+    type=click.Choice(["deep-dive", "brief", "critique", "debate"]),
+    default="deep-dive",
+)
+@click.option(
+    "--length",
+    "audio_length",
+    type=click.Choice(["short", "default", "long"]),
+    default="default",
+)
 @click.option("--language", default="en")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
-def generate_audio(ctx, description, notebook_id, audio_format, audio_length, language, wait):
+def generate_audio(
+    ctx, description, notebook_id, audio_format, audio_length, language, wait
+):
     """Generate audio overview (podcast).
 
     \b
@@ -1551,9 +2030,17 @@ def generate_audio(ctx, description, notebook_id, audio_format, audio_length, la
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
-        format_map = {"deep-dive": AudioFormat.DEEP_DIVE, "brief": AudioFormat.BRIEF,
-                      "critique": AudioFormat.CRITIQUE, "debate": AudioFormat.DEBATE}
-        length_map = {"short": AudioLength.SHORT, "default": AudioLength.DEFAULT, "long": AudioLength.LONG}
+        format_map = {
+            "deep-dive": AudioFormat.DEEP_DIVE,
+            "brief": AudioFormat.BRIEF,
+            "critique": AudioFormat.CRITIQUE,
+            "debate": AudioFormat.DEBATE,
+        }
+        length_map = {
+            "short": AudioLength.SHORT,
+            "default": AudioLength.DEFAULT,
+            "long": AudioLength.LONG,
+        }
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
@@ -1569,7 +2056,9 @@ def generate_audio(ctx, description, notebook_id, audio_format, audio_length, la
                     return None
 
                 if wait:
-                    console.print(f"[yellow]Generating audio...[/yellow] Task: {result.get('artifact_id')}")
+                    console.print(
+                        f"[yellow]Generating audio...[/yellow] Task: {result.get('artifact_id')}"
+                    )
                     service = ArtifactService(client)
                     return await service.wait_for_completion(
                         nb_id, result["artifact_id"], poll_interval=10.0
@@ -1593,11 +2082,40 @@ def generate_audio(ctx, description, notebook_id, audio_format, audio_length, la
 
 @generate.command("video")
 @click.argument("description", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--format", "video_format", type=click.Choice(["explainer", "brief"]), default="explainer")
-@click.option("--style", type=click.Choice(["auto", "classic", "whiteboard", "kawaii", "anime", "watercolor", "retro-print", "heritage", "paper-craft"]), default="auto")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--format",
+    "video_format",
+    type=click.Choice(["explainer", "brief"]),
+    default="explainer",
+)
+@click.option(
+    "--style",
+    type=click.Choice(
+        [
+            "auto",
+            "classic",
+            "whiteboard",
+            "kawaii",
+            "anime",
+            "watercolor",
+            "retro-print",
+            "heritage",
+            "paper-craft",
+        ]
+    ),
+    default="auto",
+)
 @click.option("--language", default="en")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
 def generate_video(ctx, description, notebook_id, video_format, style, language, wait):
     """Generate video overview.
@@ -1614,22 +2132,35 @@ def generate_video(ctx, description, notebook_id, video_format, style, language,
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
         format_map = {"explainer": VideoFormat.EXPLAINER, "brief": VideoFormat.BRIEF}
-        style_map = {"auto": VideoStyle.AUTO_SELECT, "classic": VideoStyle.CLASSIC, "whiteboard": VideoStyle.WHITEBOARD,
-                     "kawaii": VideoStyle.KAWAII, "anime": VideoStyle.ANIME, "watercolor": VideoStyle.WATERCOLOR,
-                     "retro-print": VideoStyle.RETRO_PRINT, "heritage": VideoStyle.HERITAGE, "paper-craft": VideoStyle.PAPER_CRAFT}
+        style_map = {
+            "auto": VideoStyle.AUTO_SELECT,
+            "classic": VideoStyle.CLASSIC,
+            "whiteboard": VideoStyle.WHITEBOARD,
+            "kawaii": VideoStyle.KAWAII,
+            "anime": VideoStyle.ANIME,
+            "watercolor": VideoStyle.WATERCOLOR,
+            "retro-print": VideoStyle.RETRO_PRINT,
+            "heritage": VideoStyle.HERITAGE,
+            "paper-craft": VideoStyle.PAPER_CRAFT,
+        }
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
                 result = await client.generate_video(
-                    nb_id, language=language, instructions=description or None,
-                    video_format=format_map[video_format], video_style=style_map[style],
+                    nb_id,
+                    language=language,
+                    instructions=description or None,
+                    video_format=format_map[video_format],
+                    video_style=style_map[style],
                 )
 
                 if not result:
                     return None
 
                 if wait and result.get("artifact_id"):
-                    console.print(f"[yellow]Generating video...[/yellow] Task: {result.get('artifact_id')}")
+                    console.print(
+                        f"[yellow]Generating video...[/yellow] Task: {result.get('artifact_id')}"
+                    )
                     service = ArtifactService(client)
                     return await service.wait_for_completion(
                         nb_id, result["artifact_id"], poll_interval=10.0, timeout=600.0
@@ -1653,13 +2184,33 @@ def generate_video(ctx, description, notebook_id, video_format, style, language,
 
 @generate.command("slide-deck")
 @click.argument("description", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--format", "deck_format", type=click.Choice(["detailed", "presenter"]), default="detailed")
-@click.option("--length", "deck_length", type=click.Choice(["default", "short"]), default="default")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--format",
+    "deck_format",
+    type=click.Choice(["detailed", "presenter"]),
+    default="detailed",
+)
+@click.option(
+    "--length",
+    "deck_length",
+    type=click.Choice(["default", "short"]),
+    default="default",
+)
 @click.option("--language", default="en")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
-def generate_slide_deck(ctx, description, notebook_id, deck_format, deck_length, language, wait):
+def generate_slide_deck(
+    ctx, description, notebook_id, deck_format, deck_length, language, wait
+):
     """Generate slide deck.
 
     \b
@@ -1672,21 +2223,32 @@ def generate_slide_deck(ctx, description, notebook_id, deck_format, deck_length,
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
-        format_map = {"detailed": SlideDeckFormat.DETAILED_DECK, "presenter": SlideDeckFormat.PRESENTER_SLIDES}
-        length_map = {"default": SlideDeckLength.DEFAULT, "short": SlideDeckLength.SHORT}
+        format_map = {
+            "detailed": SlideDeckFormat.DETAILED_DECK,
+            "presenter": SlideDeckFormat.PRESENTER_SLIDES,
+        }
+        length_map = {
+            "default": SlideDeckLength.DEFAULT,
+            "short": SlideDeckLength.SHORT,
+        }
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
                 result = await client.generate_slide_deck(
-                    nb_id, language=language, instructions=description or None,
-                    slide_deck_format=format_map[deck_format], slide_deck_length=length_map[deck_length],
+                    nb_id,
+                    language=language,
+                    instructions=description or None,
+                    slide_deck_format=format_map[deck_format],
+                    slide_deck_length=length_map[deck_length],
                 )
 
                 if not result:
                     return None
 
                 if wait and result.get("artifact_id"):
-                    console.print(f"[yellow]Generating slide deck...[/yellow] Task: {result.get('artifact_id')}")
+                    console.print(
+                        f"[yellow]Generating slide deck...[/yellow] Task: {result.get('artifact_id')}"
+                    )
                     service = ArtifactService(client)
                     return await service.wait_for_completion(
                         nb_id, result["artifact_id"], poll_interval=10.0
@@ -1708,10 +2270,22 @@ def generate_slide_deck(ctx, description, notebook_id, deck_format, deck_length,
 
 @generate.command("quiz")
 @click.argument("description", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--quantity", type=click.Choice(["fewer", "standard", "more"]), default="standard")
-@click.option("--difficulty", type=click.Choice(["easy", "medium", "hard"]), default="medium")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--quantity", type=click.Choice(["fewer", "standard", "more"]), default="standard"
+)
+@click.option(
+    "--difficulty", type=click.Choice(["easy", "medium", "hard"]), default="medium"
+)
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
 def generate_quiz(ctx, description, notebook_id, quantity, difficulty, wait):
     """Generate quiz.
@@ -1726,30 +2300,46 @@ def generate_quiz(ctx, description, notebook_id, quantity, difficulty, wait):
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
-        quantity_map = {"fewer": QuizQuantity.FEWER, "standard": QuizQuantity.STANDARD, "more": QuizQuantity.MORE}
-        difficulty_map = {"easy": QuizDifficulty.EASY, "medium": QuizDifficulty.MEDIUM, "hard": QuizDifficulty.HARD}
+        quantity_map = {
+            "fewer": QuizQuantity.FEWER,
+            "standard": QuizQuantity.STANDARD,
+            "more": QuizQuantity.MORE,
+        }
+        difficulty_map = {
+            "easy": QuizDifficulty.EASY,
+            "medium": QuizDifficulty.MEDIUM,
+            "hard": QuizDifficulty.HARD,
+        }
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
                 result = await client.generate_quiz(
-                    nb_id, instructions=description or None,
-                    quantity=quantity_map[quantity], difficulty=difficulty_map[difficulty],
+                    nb_id,
+                    instructions=description or None,
+                    quantity=quantity_map[quantity],
+                    difficulty=difficulty_map[difficulty],
                 )
 
                 if not result:
                     return None
 
-                task_id = result.get("artifact_id") or (result[0] if isinstance(result, list) else None)
+                task_id = result.get("artifact_id") or (
+                    result[0] if isinstance(result, list) else None
+                )
                 if wait and task_id:
                     console.print(f"[yellow]Generating quiz...[/yellow]")
                     service = ArtifactService(client)
-                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                    return await service.wait_for_completion(
+                        nb_id, task_id, poll_interval=5.0
+                    )
                 return result
 
         status = run_async(_generate())
 
         if not status:
-            console.print("[red]Quiz generation failed (Google may be rate limiting)[/red]")
+            console.print(
+                "[red]Quiz generation failed (Google may be rate limiting)[/red]"
+            )
         elif hasattr(status, "is_complete") and status.is_complete:
             console.print("[green]Quiz ready[/green]")
         elif hasattr(status, "is_failed") and status.is_failed:
@@ -1763,10 +2353,22 @@ def generate_quiz(ctx, description, notebook_id, quantity, difficulty, wait):
 
 @generate.command("flashcards")
 @click.argument("description", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--quantity", type=click.Choice(["fewer", "standard", "more"]), default="standard")
-@click.option("--difficulty", type=click.Choice(["easy", "medium", "hard"]), default="medium")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--quantity", type=click.Choice(["fewer", "standard", "more"]), default="standard"
+)
+@click.option(
+    "--difficulty", type=click.Choice(["easy", "medium", "hard"]), default="medium"
+)
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
 def generate_flashcards(ctx, description, notebook_id, quantity, difficulty, wait):
     """Generate flashcards.
@@ -1781,30 +2383,46 @@ def generate_flashcards(ctx, description, notebook_id, quantity, difficulty, wai
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
-        quantity_map = {"fewer": QuizQuantity.FEWER, "standard": QuizQuantity.STANDARD, "more": QuizQuantity.MORE}
-        difficulty_map = {"easy": QuizDifficulty.EASY, "medium": QuizDifficulty.MEDIUM, "hard": QuizDifficulty.HARD}
+        quantity_map = {
+            "fewer": QuizQuantity.FEWER,
+            "standard": QuizQuantity.STANDARD,
+            "more": QuizQuantity.MORE,
+        }
+        difficulty_map = {
+            "easy": QuizDifficulty.EASY,
+            "medium": QuizDifficulty.MEDIUM,
+            "hard": QuizDifficulty.HARD,
+        }
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
                 result = await client.generate_flashcards(
-                    nb_id, instructions=description or None,
-                    quantity=quantity_map[quantity], difficulty=difficulty_map[difficulty],
+                    nb_id,
+                    instructions=description or None,
+                    quantity=quantity_map[quantity],
+                    difficulty=difficulty_map[difficulty],
                 )
 
                 if not result:
                     return None
 
-                task_id = result.get("artifact_id") or (result[0] if isinstance(result, list) else None)
+                task_id = result.get("artifact_id") or (
+                    result[0] if isinstance(result, list) else None
+                )
                 if wait and task_id:
                     console.print(f"[yellow]Generating flashcards...[/yellow]")
                     service = ArtifactService(client)
-                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                    return await service.wait_for_completion(
+                        nb_id, task_id, poll_interval=5.0
+                    )
                 return result
 
         status = run_async(_generate())
 
         if not status:
-            console.print("[red]Flashcard generation failed (Google may be rate limiting)[/red]")
+            console.print(
+                "[red]Flashcard generation failed (Google may be rate limiting)[/red]"
+            )
         elif hasattr(status, "is_complete") and status.is_complete:
             console.print("[green]Flashcards ready[/green]")
         elif hasattr(status, "is_failed") and status.is_failed:
@@ -1818,13 +2436,31 @@ def generate_flashcards(ctx, description, notebook_id, quantity, difficulty, wai
 
 @generate.command("infographic")
 @click.argument("description", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--orientation", type=click.Choice(["landscape", "portrait", "square"]), default="landscape")
-@click.option("--detail", type=click.Choice(["concise", "standard", "detailed"]), default="standard")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--orientation",
+    type=click.Choice(["landscape", "portrait", "square"]),
+    default="landscape",
+)
+@click.option(
+    "--detail",
+    type=click.Choice(["concise", "standard", "detailed"]),
+    default="standard",
+)
 @click.option("--language", default="en")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
-def generate_infographic(ctx, description, notebook_id, orientation, detail, language, wait):
+def generate_infographic(
+    ctx, description, notebook_id, orientation, detail, language, wait
+):
     """Generate infographic.
 
     \b
@@ -1837,30 +2473,47 @@ def generate_infographic(ctx, description, notebook_id, orientation, detail, lan
         cookies, csrf, session_id = get_client(ctx)
         auth = AuthTokens(cookies=cookies, csrf_token=csrf, session_id=session_id)
 
-        orientation_map = {"landscape": InfographicOrientation.LANDSCAPE, "portrait": InfographicOrientation.PORTRAIT, "square": InfographicOrientation.SQUARE}
-        detail_map = {"concise": InfographicDetail.CONCISE, "standard": InfographicDetail.STANDARD, "detailed": InfographicDetail.DETAILED}
+        orientation_map = {
+            "landscape": InfographicOrientation.LANDSCAPE,
+            "portrait": InfographicOrientation.PORTRAIT,
+            "square": InfographicOrientation.SQUARE,
+        }
+        detail_map = {
+            "concise": InfographicDetail.CONCISE,
+            "standard": InfographicDetail.STANDARD,
+            "detailed": InfographicDetail.DETAILED,
+        }
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
                 result = await client.generate_infographic(
-                    nb_id, language=language, instructions=description or None,
-                    orientation=orientation_map[orientation], detail_level=detail_map[detail],
+                    nb_id,
+                    language=language,
+                    instructions=description or None,
+                    orientation=orientation_map[orientation],
+                    detail_level=detail_map[detail],
                 )
 
                 if not result:
                     return None
 
-                task_id = result.get("artifact_id") or (result[0] if isinstance(result, list) else None)
+                task_id = result.get("artifact_id") or (
+                    result[0] if isinstance(result, list) else None
+                )
                 if wait and task_id:
                     console.print(f"[yellow]Generating infographic...[/yellow]")
                     service = ArtifactService(client)
-                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                    return await service.wait_for_completion(
+                        nb_id, task_id, poll_interval=5.0
+                    )
                 return result
 
         status = run_async(_generate())
 
         if not status:
-            console.print("[red]Infographic generation failed (Google may be rate limiting)[/red]")
+            console.print(
+                "[red]Infographic generation failed (Google may be rate limiting)[/red]"
+            )
         elif hasattr(status, "is_complete") and status.is_complete:
             console.print("[green]Infographic ready[/green]")
         elif hasattr(status, "is_failed") and status.is_failed:
@@ -1874,9 +2527,17 @@ def generate_infographic(ctx, description, notebook_id, orientation, detail, lan
 
 @generate.command("data-table")
 @click.argument("description")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--language", default="en")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
 def generate_data_table(ctx, description, notebook_id, language, wait):
     """Generate data table.
@@ -1893,22 +2554,30 @@ def generate_data_table(ctx, description, notebook_id, language, wait):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_data_table(nb_id, language=language, instructions=description)
+                result = await client.generate_data_table(
+                    nb_id, language=language, instructions=description
+                )
 
                 if not result:
                     return None
 
-                task_id = result.get("artifact_id") or (result[0] if isinstance(result, list) else None)
+                task_id = result.get("artifact_id") or (
+                    result[0] if isinstance(result, list) else None
+                )
                 if wait and task_id:
                     console.print(f"[yellow]Generating data table...[/yellow]")
                     service = ArtifactService(client)
-                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                    return await service.wait_for_completion(
+                        nb_id, task_id, poll_interval=5.0
+                    )
                 return result
 
         status = run_async(_generate())
 
         if not status:
-            console.print("[red]Data table generation failed (Google may be rate limiting)[/red]")
+            console.print(
+                "[red]Data table generation failed (Google may be rate limiting)[/red]"
+            )
         elif hasattr(status, "is_complete") and status.is_complete:
             console.print("[green]Data table ready[/green]")
         elif hasattr(status, "is_failed") and status.is_failed:
@@ -1921,7 +2590,13 @@ def generate_data_table(ctx, description, notebook_id, language, wait):
 
 
 @generate.command("mind-map")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def generate_mind_map(ctx, notebook_id):
     """Generate mind map."""
@@ -1944,7 +2619,9 @@ def generate_mind_map(ctx, notebook_id):
                 mind_map = result.get("mind_map", {})
                 if isinstance(mind_map, dict):
                     console.print(f"  Root: {mind_map.get('name', '-')}")
-                    console.print(f"  Children: {len(mind_map.get('children', []))} nodes")
+                    console.print(
+                        f"  Children: {len(mind_map.get('children', []))} nodes"
+                    )
             else:
                 console.print(result)
         else:
@@ -1956,11 +2633,23 @@ def generate_mind_map(ctx, notebook_id):
 
 @generate.command("report")
 @click.argument("description", default="", required=False)
-@click.option("--format", "report_format",
-              type=click.Choice(["briefing-doc", "study-guide", "blog-post", "custom"]),
-              default="briefing-doc", help="Report format (default: briefing-doc)")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
-@click.option("--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)")
+@click.option(
+    "--format",
+    "report_format",
+    type=click.Choice(["briefing-doc", "study-guide", "blog-post", "custom"]),
+    default="briefing-doc",
+    help="Report format (default: briefing-doc)",
+)
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option(
+    "--wait/--no-wait", default=False, help="Wait for completion (default: no-wait)"
+)
 @click.pass_context
 def generate_report_cmd(ctx, description, report_format, notebook_id, wait):
     """Generate a report (briefing doc, study guide, blog post, or custom).
@@ -2022,19 +2711,25 @@ def generate_report_cmd(ctx, description, report_format, notebook_id, wait):
                 if wait and task_id:
                     console.print(f"[yellow]Generating {format_display}...[/yellow]")
                     service = ArtifactService(client)
-                    return await service.wait_for_completion(nb_id, task_id, poll_interval=5.0)
+                    return await service.wait_for_completion(
+                        nb_id, task_id, poll_interval=5.0
+                    )
                 return result
 
         status = run_async(_generate())
 
         if not status:
-            console.print(f"[red]Report generation failed (Google may be rate limiting)[/red]")
+            console.print(
+                f"[red]Report generation failed (Google may be rate limiting)[/red]"
+            )
         elif hasattr(status, "is_complete") and status.is_complete:
             console.print(f"[green]{format_display.title()} ready[/green]")
         elif hasattr(status, "is_failed") and status.is_failed:
             console.print(f"[red]Failed:[/red] {status.error}")
         else:
-            artifact_id = status.get("artifact_id") if isinstance(status, dict) else None
+            artifact_id = (
+                status.get("artifact_id") if isinstance(status, dict) else None
+            )
             console.print(f"[yellow]Started:[/yellow] {artifact_id or status}")
 
     except Exception as e:
@@ -2146,14 +2841,18 @@ async def _download_artifacts_generic(
             # Filter by type and status=3 (completed)
             # Artifact structure: [id, title, type, created_at, status, ...]
             type_artifacts_raw = [
-                a for a in all_artifacts
-                if isinstance(a, list) and len(a) > 4 and a[2] == artifact_type_id and a[4] == 3
+                a
+                for a in all_artifacts
+                if isinstance(a, list)
+                and len(a) > 4
+                and a[2] == artifact_type_id
+                and a[4] == 3
             ]
 
             if not type_artifacts_raw:
                 return {
                     "error": f"No completed {artifact_type_name} artifacts found",
-                    "suggestion": f"Generate one with: notebooklm generate {artifact_type_name}"
+                    "suggestion": f"Generate one with: notebooklm generate {artifact_type_name}",
                 }
 
             # Convert to dict format
@@ -2176,7 +2875,7 @@ async def _download_artifacts_generic(
                     return None, {
                         "status": "skipped",
                         "reason": f"{entity_type} exists",
-                        "path": str(path)
+                        "path": str(path),
                     }
 
                 if not force:
@@ -2200,7 +2899,9 @@ async def _download_artifacts_generic(
 
             # Handle --all flag
             if download_all:
-                output_dir = Path(output_path) if output_path else Path(default_output_dir)
+                output_dir = (
+                    Path(output_path) if output_path else Path(default_output_dir)
+                )
 
                 if dry_run:
                     return {
@@ -2215,11 +2916,11 @@ async def _download_artifacts_generic(
                                 "filename": artifact_title_to_filename(
                                     a["title"],
                                     file_extension if not is_directory_type else "",
-                                    set()
-                                )
+                                    set(),
+                                ),
                             }
                             for a in type_artifacts
-                        ]
+                        ],
                     }
 
                 output_dir.mkdir(parents=True, exist_ok=True)
@@ -2231,13 +2932,15 @@ async def _download_artifacts_generic(
                 for i, artifact in enumerate(type_artifacts, 1):
                     # Progress indicator
                     if not json_output:
-                        console.print(f"[dim]Downloading {i}/{total}:[/dim] {artifact['title']}")
+                        console.print(
+                            f"[dim]Downloading {i}/{total}:[/dim] {artifact['title']}"
+                        )
 
                     # Generate safe name
                     item_name = artifact_title_to_filename(
                         artifact["title"],
                         file_extension if not is_directory_type else "",
-                        existing_names
+                        existing_names,
                     )
                     existing_names.add(item_name)
                     item_path = output_dir / item_name
@@ -2245,12 +2948,14 @@ async def _download_artifacts_generic(
                     # Resolve conflicts
                     resolved_path, skip_info = _resolve_conflict(item_path)
                     if skip_info:
-                        results.append({
-                            "id": artifact["id"],
-                            "title": artifact["title"],
-                            "filename": item_name,
-                            **skip_info
-                        })
+                        results.append(
+                            {
+                                "id": artifact["id"],
+                                "title": artifact["title"],
+                                "filename": item_name,
+                                **skip_info,
+                            }
+                        )
                         continue
 
                     # Update if auto-renamed
@@ -2264,29 +2969,35 @@ async def _download_artifacts_generic(
                             item_path.mkdir(parents=True, exist_ok=True)
 
                         # Download using dispatch
-                        await download_fn(nb_id, str(item_path), artifact_id=artifact["id"])
+                        await download_fn(
+                            nb_id, str(item_path), artifact_id=artifact["id"]
+                        )
 
-                        results.append({
-                            "id": artifact["id"],
-                            "title": artifact["title"],
-                            "filename": item_name,
-                            "path": str(item_path),
-                            "status": "downloaded"
-                        })
+                        results.append(
+                            {
+                                "id": artifact["id"],
+                                "title": artifact["title"],
+                                "filename": item_name,
+                                "path": str(item_path),
+                                "status": "downloaded",
+                            }
+                        )
                     except Exception as e:
-                        results.append({
-                            "id": artifact["id"],
-                            "title": artifact["title"],
-                            "filename": item_name,
-                            "status": "failed",
-                            "error": str(e)
-                        })
+                        results.append(
+                            {
+                                "id": artifact["id"],
+                                "title": artifact["title"],
+                                "filename": item_name,
+                                "status": "failed",
+                                "error": str(e),
+                            }
+                        )
 
                 return {
                     "operation": "download_all",
                     "output_dir": str(output_dir),
                     "total": total,
-                    "results": results
+                    "results": results,
                 }
 
             # Single artifact selection
@@ -2296,7 +3007,7 @@ async def _download_artifacts_generic(
                     latest=latest,
                     earliest=earliest,
                     name=name,
-                    artifact_id=artifact_id
+                    artifact_id=artifact_id,
                 )
             except ValueError as e:
                 return {"error": str(e)}
@@ -2306,7 +3017,7 @@ async def _download_artifacts_generic(
                 safe_name = artifact_title_to_filename(
                     selected["title"],
                     file_extension if not is_directory_type else "",
-                    set()
+                    set(),
                 )
                 final_path = Path.cwd() / safe_name
             else:
@@ -2320,9 +3031,9 @@ async def _download_artifacts_generic(
                     "artifact": {
                         "id": selected["id"],
                         "title": selected["title"],
-                        "selection_reason": reason
+                        "selection_reason": reason,
                     },
-                    "output_path": str(final_path)
+                    "output_path": str(final_path),
                 }
 
             # Resolve conflicts
@@ -2332,7 +3043,7 @@ async def _download_artifacts_generic(
                 return {
                     "error": f"{entity_type} exists: {final_path}",
                     "artifact": selected,
-                    "suggestion": "Use --force to overwrite or choose a different path"
+                    "suggestion": "Use --force to overwrite or choose a different path",
                 }
 
             final_path = resolved_path
@@ -2344,23 +3055,22 @@ async def _download_artifacts_generic(
                     final_path.mkdir(parents=True, exist_ok=True)
 
                 # Download using dispatch
-                result_path = await download_fn(nb_id, str(final_path), artifact_id=selected["id"])
+                result_path = await download_fn(
+                    nb_id, str(final_path), artifact_id=selected["id"]
+                )
 
                 return {
                     "operation": "download_single",
                     "artifact": {
                         "id": selected["id"],
                         "title": selected["title"],
-                        "selection_reason": reason
+                        "selection_reason": reason,
                     },
                     "output_path": result_path or str(final_path),
-                    "status": "downloaded"
+                    "status": "downloaded",
                 }
             except Exception as e:
-                return {
-                    "error": str(e),
-                    "artifact": selected
-                }
+                return {"error": str(e), "artifact": selected}
 
     return await _download()
 
@@ -2376,7 +3086,9 @@ def _display_download_result(result: dict, artifact_type: str):
     # Dry run
     if result.get("dry_run"):
         if result["operation"] == "download_all":
-            console.print(f"[yellow]DRY RUN:[/yellow] Would download {result['count']} {artifact_type} files to: {result['output_dir']}")
+            console.print(
+                f"[yellow]DRY RUN:[/yellow] Would download {result['count']} {artifact_type} files to: {result['output_dir']}"
+            )
             console.print("\n[bold]Preview:[/bold]")
             for art in result["artifacts"]:
                 console.print(f"  {art['filename']} <- {art['title']}")
@@ -2393,7 +3105,9 @@ def _display_download_result(result: dict, artifact_type: str):
         skipped = [r for r in result["results"] if r.get("status") == "skipped"]
         failed = [r for r in result["results"] if r.get("status") == "failed"]
 
-        console.print(f"[bold]Downloaded {len(downloaded)}/{result['total']} {artifact_type} files to:[/bold] {result['output_dir']}")
+        console.print(
+            f"[bold]Downloaded {len(downloaded)}/{result['total']} {artifact_type} files to:[/bold] {result['output_dir']}"
+        )
 
         if downloaded:
             console.print("\n[green]Downloaded:[/green]")
@@ -2412,8 +3126,12 @@ def _display_download_result(result: dict, artifact_type: str):
 
     # Single download
     else:
-        console.print(f"[green]{artifact_type.capitalize()} saved to:[/green] {result['output_path']}")
-        console.print(f"[dim]Artifact: {result['artifact']['title']} ({result['artifact']['selection_reason']})[/dim]")
+        console.print(
+            f"[green]{artifact_type.capitalize()} saved to:[/green] {result['output_path']}"
+        )
+        console.print(
+            f"[dim]Artifact: {result['artifact']['title']} ({result['artifact']['selection_reason']})[/dim]"
+        )
 
 
 @download.command("audio")
@@ -2429,7 +3147,20 @@ def _display_download_result(result: dict, artifact_type: str):
 @click.option("--force", is_flag=True, help="Overwrite existing files")
 @click.option("--no-clobber", is_flag=True, help="Skip if file exists")
 @click.pass_context
-def download_audio(ctx, output_path, notebook, latest, earliest, download_all, name, artifact_id, json_output, dry_run, force, no_clobber):
+def download_audio(
+    ctx,
+    output_path,
+    notebook,
+    latest,
+    earliest,
+    download_all,
+    name,
+    artifact_id,
+    json_output,
+    dry_run,
+    force,
+    no_clobber,
+):
     """Download audio overview(s) to file.
 
     \b
@@ -2450,24 +3181,26 @@ def download_audio(ctx, output_path, notebook, latest, earliest, download_all, n
       notebooklm download audio --all --dry-run
     """
     try:
-        result = run_async(_download_artifacts_generic(
-            ctx=ctx,
-            artifact_type_name="audio",
-            artifact_type_id=1,
-            file_extension=".mp3",
-            default_output_dir="./audio",
-            output_path=output_path,
-            notebook=notebook,
-            latest=latest,
-            earliest=earliest,
-            download_all=download_all,
-            name=name,
-            artifact_id=artifact_id,
-            json_output=json_output,
-            dry_run=dry_run,
-            force=force,
-            no_clobber=no_clobber
-        ))
+        result = run_async(
+            _download_artifacts_generic(
+                ctx=ctx,
+                artifact_type_name="audio",
+                artifact_type_id=1,
+                file_extension=".mp3",
+                default_output_dir="./audio",
+                output_path=output_path,
+                notebook=notebook,
+                latest=latest,
+                earliest=earliest,
+                download_all=download_all,
+                name=name,
+                artifact_id=artifact_id,
+                json_output=json_output,
+                dry_run=dry_run,
+                force=force,
+                no_clobber=no_clobber,
+            )
+        )
 
         if json_output:
             console.print(json.dumps(result, indent=2))
@@ -2496,7 +3229,20 @@ def download_audio(ctx, output_path, notebook, latest, earliest, download_all, n
 @click.option("--force", is_flag=True, help="Overwrite existing files")
 @click.option("--no-clobber", is_flag=True, help="Skip if file exists")
 @click.pass_context
-def download_video(ctx, output_path, notebook, latest, earliest, download_all, name, artifact_id, json_output, dry_run, force, no_clobber):
+def download_video(
+    ctx,
+    output_path,
+    notebook,
+    latest,
+    earliest,
+    download_all,
+    name,
+    artifact_id,
+    json_output,
+    dry_run,
+    force,
+    no_clobber,
+):
     """Download video overview(s) to file.
 
     \b
@@ -2517,24 +3263,26 @@ def download_video(ctx, output_path, notebook, latest, earliest, download_all, n
       notebooklm download video --all --dry-run
     """
     try:
-        result = run_async(_download_artifacts_generic(
-            ctx=ctx,
-            artifact_type_name="video",
-            artifact_type_id=3,
-            file_extension=".mp4",
-            default_output_dir="./video",
-            output_path=output_path,
-            notebook=notebook,
-            latest=latest,
-            earliest=earliest,
-            download_all=download_all,
-            name=name,
-            artifact_id=artifact_id,
-            json_output=json_output,
-            dry_run=dry_run,
-            force=force,
-            no_clobber=no_clobber
-        ))
+        result = run_async(
+            _download_artifacts_generic(
+                ctx=ctx,
+                artifact_type_name="video",
+                artifact_type_id=3,
+                file_extension=".mp4",
+                default_output_dir="./video",
+                output_path=output_path,
+                notebook=notebook,
+                latest=latest,
+                earliest=earliest,
+                download_all=download_all,
+                name=name,
+                artifact_id=artifact_id,
+                json_output=json_output,
+                dry_run=dry_run,
+                force=force,
+                no_clobber=no_clobber,
+            )
+        )
 
         if json_output:
             console.print(json.dumps(result, indent=2))
@@ -2563,7 +3311,20 @@ def download_video(ctx, output_path, notebook, latest, earliest, download_all, n
 @click.option("--force", is_flag=True, help="Overwrite existing directories")
 @click.option("--no-clobber", is_flag=True, help="Skip if directory exists")
 @click.pass_context
-def download_slide_deck(ctx, output_path, notebook, latest, earliest, download_all, name, artifact_id, json_output, dry_run, force, no_clobber):
+def download_slide_deck(
+    ctx,
+    output_path,
+    notebook,
+    latest,
+    earliest,
+    download_all,
+    name,
+    artifact_id,
+    json_output,
+    dry_run,
+    force,
+    no_clobber,
+):
     """Download slide deck(s) to directories.
 
     \b
@@ -2584,24 +3345,26 @@ def download_slide_deck(ctx, output_path, notebook, latest, earliest, download_a
       notebooklm download slide-deck --all --dry-run
     """
     try:
-        result = run_async(_download_artifacts_generic(
-            ctx=ctx,
-            artifact_type_name="slide-deck",
-            artifact_type_id=8,
-            file_extension="",  # Empty string for directory type
-            default_output_dir="./slide-deck",
-            output_path=output_path,
-            notebook=notebook,
-            latest=latest,
-            earliest=earliest,
-            download_all=download_all,
-            name=name,
-            artifact_id=artifact_id,
-            json_output=json_output,
-            dry_run=dry_run,
-            force=force,
-            no_clobber=no_clobber
-        ))
+        result = run_async(
+            _download_artifacts_generic(
+                ctx=ctx,
+                artifact_type_name="slide-deck",
+                artifact_type_id=8,
+                file_extension="",  # Empty string for directory type
+                default_output_dir="./slide-deck",
+                output_path=output_path,
+                notebook=notebook,
+                latest=latest,
+                earliest=earliest,
+                download_all=download_all,
+                name=name,
+                artifact_id=artifact_id,
+                json_output=json_output,
+                dry_run=dry_run,
+                force=force,
+                no_clobber=no_clobber,
+            )
+        )
 
         if json_output:
             console.print(json.dumps(result, indent=2))
@@ -2630,7 +3393,20 @@ def download_slide_deck(ctx, output_path, notebook, latest, earliest, download_a
 @click.option("--force", is_flag=True, help="Overwrite existing files")
 @click.option("--no-clobber", is_flag=True, help="Skip if file exists")
 @click.pass_context
-def download_infographic(ctx, output_path, notebook, latest, earliest, download_all, name, artifact_id, json_output, dry_run, force, no_clobber):
+def download_infographic(
+    ctx,
+    output_path,
+    notebook,
+    latest,
+    earliest,
+    download_all,
+    name,
+    artifact_id,
+    json_output,
+    dry_run,
+    force,
+    no_clobber,
+):
     """Download infographic(s) to file.
 
     \b
@@ -2651,24 +3427,26 @@ def download_infographic(ctx, output_path, notebook, latest, earliest, download_
       notebooklm download infographic --all --dry-run
     """
     try:
-        result = run_async(_download_artifacts_generic(
-            ctx=ctx,
-            artifact_type_name="infographic",
-            artifact_type_id=7,
-            file_extension=".png",
-            default_output_dir="./infographic",
-            output_path=output_path,
-            notebook=notebook,
-            latest=latest,
-            earliest=earliest,
-            download_all=download_all,
-            name=name,
-            artifact_id=artifact_id,
-            json_output=json_output,
-            dry_run=dry_run,
-            force=force,
-            no_clobber=no_clobber
-        ))
+        result = run_async(
+            _download_artifacts_generic(
+                ctx=ctx,
+                artifact_type_name="infographic",
+                artifact_type_id=7,
+                file_extension=".png",
+                default_output_dir="./infographic",
+                output_path=output_path,
+                notebook=notebook,
+                latest=latest,
+                earliest=earliest,
+                download_all=download_all,
+                name=name,
+                artifact_id=artifact_id,
+                json_output=json_output,
+                dry_run=dry_run,
+                force=force,
+                no_clobber=no_clobber,
+            )
+        )
 
         if json_output:
             console.print(json.dumps(result, indent=2))
@@ -2732,7 +3510,13 @@ def _parse_note(n: list) -> tuple[str, str, str]:
 
 
 @note.command("list")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def note_list(ctx, notebook_id):
     """List all notes in a notebook."""
@@ -2760,7 +3544,9 @@ def note_list(ctx, notebook_id):
             if isinstance(n, list) and len(n) > 0:
                 note_id, title, content = _parse_note(n)
                 preview = content[:50]
-                table.add_row(note_id, title, preview + "..." if len(content) > 50 else preview)
+                table.add_row(
+                    note_id, title, preview + "..." if len(content) > 50 else preview
+                )
 
         console.print(table)
 
@@ -2770,7 +3556,13 @@ def note_list(ctx, notebook_id):
 
 @note.command("create")
 @click.argument("content", default="", required=False)
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("-t", "--title", default="New Note", help="Note title")
 @click.pass_context
 def note_create(ctx, content, notebook_id, title):
@@ -2805,7 +3597,13 @@ def note_create(ctx, content, notebook_id, title):
 
 @note.command("get")
 @click.argument("note_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def note_get(ctx, note_id, notebook_id):
     """Get note content."""
@@ -2837,7 +3635,13 @@ def note_get(ctx, note_id, notebook_id):
 
 @note.command("save")
 @click.argument("note_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--title", help="New title")
 @click.option("--content", help="New content")
 @click.pass_context
@@ -2854,7 +3658,9 @@ def note_save(ctx, note_id, notebook_id, title, content):
 
         async def _save():
             async with NotebookLMClient(auth) as client:
-                return await client.update_note(nb_id, note_id, content=content, title=title)
+                return await client.update_note(
+                    nb_id, note_id, content=content, title=title
+                )
 
         run_async(_save())
         console.print(f"[green]Note updated:[/green] {note_id}")
@@ -2866,7 +3672,13 @@ def note_save(ctx, note_id, notebook_id, title, content):
 @note.command("rename")
 @click.argument("note_id")
 @click.argument("new_title")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.pass_context
 def note_rename(ctx, note_id, new_title, notebook_id):
     """Rename a note."""
@@ -2889,7 +3701,9 @@ def note_rename(ctx, note_id, new_title, notebook_id):
                     if len(inner) > 1 and isinstance(inner[1], str):
                         content = inner[1]
 
-                await client.update_note(nb_id, note_id, content=content, title=new_title)
+                await client.update_note(
+                    nb_id, note_id, content=content, title=new_title
+                )
                 return True, None
 
         result, error = run_async(_rename())
@@ -2904,7 +3718,13 @@ def note_rename(ctx, note_id, new_title, notebook_id):
 
 @note.command("delete")
 @click.argument("note_id")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--yes", "-y", is_flag=True, help="Skip confirmation")
 @click.pass_context
 def note_delete(ctx, note_id, notebook_id, yes):
@@ -2936,7 +3756,13 @@ def note_delete(ctx, note_id, notebook_id, yes):
 
 
 @cli.command("share-audio")
-@click.option("-n", "--notebook", "notebook_id", default=None, help="Notebook ID (uses current if not set)")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
 @click.option("--public/--private", default=False, help="Make audio public or private")
 @click.pass_context
 def share_audio_cmd(ctx, notebook_id, public):

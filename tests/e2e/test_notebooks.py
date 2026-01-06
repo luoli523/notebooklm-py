@@ -63,3 +63,51 @@ class TestNotebookAsk:
         result = await client.ask(test_notebook_id, "What is this notebook about?")
         assert "answer" in result
         assert "conversation_id" in result
+
+
+@requires_auth
+@pytest.mark.e2e
+class TestNotebookDescription:
+    @pytest.mark.asyncio
+    async def test_get_description(self, client, test_notebook_id):
+        from notebooklm.services import NotebookService
+        from notebooklm.services.notebooks import NotebookDescription
+
+        service = NotebookService(client)
+        description = await service.get_description(test_notebook_id)
+
+        assert isinstance(description, NotebookDescription)
+        assert description.summary is not None
+        assert isinstance(description.suggested_topics, list)
+
+
+@requires_auth
+@pytest.mark.e2e
+class TestNotebookConfigure:
+    @pytest.mark.asyncio
+    async def test_configure_learning_mode(self, client, test_notebook_id):
+        from notebooklm.services import ConversationService
+        from notebooklm.services.conversation import ChatMode
+
+        service = ConversationService(client)
+        await service.set_mode(test_notebook_id, ChatMode.LEARNING_GUIDE)
+
+    @pytest.mark.asyncio
+    async def test_configure_custom_persona(self, client, test_notebook_id):
+        from notebooklm.services import ConversationService
+        from notebooklm.rpc import ChatGoal
+
+        service = ConversationService(client)
+        await service.configure(
+            test_notebook_id,
+            goal=ChatGoal.CUSTOM,
+            custom_prompt="You are a helpful science tutor",
+        )
+
+    @pytest.mark.asyncio
+    async def test_reset_to_default(self, client, test_notebook_id):
+        from notebooklm.services import ConversationService
+        from notebooklm.services.conversation import ChatMode
+
+        service = ConversationService(client)
+        await service.set_mode(test_notebook_id, ChatMode.DEFAULT)

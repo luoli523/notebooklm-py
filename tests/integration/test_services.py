@@ -198,7 +198,7 @@ class TestArtifactService:
             "artifact_id": "task_001",
             "status": "in_progress",
             "title": "Audio Overview",
-            "create_time": "2024-01-05"
+            "create_time": "2024-01-05",
         }
 
         service = ArtifactService(mock_client)
@@ -214,7 +214,7 @@ class TestArtifactService:
             "artifact_id": "task_002",
             "status": "in_progress",
             "title": "Audio Overview",
-            "create_time": "2024-01-05"
+            "create_time": "2024-01-05",
         }
 
         service = ArtifactService(mock_client)
@@ -231,7 +231,7 @@ class TestArtifactService:
             "artifact_id": "task_003",
             "status": "in_progress",
             "title": "Slide Deck",
-            "create_time": "2024-01-05"
+            "create_time": "2024-01-05",
         }
 
         service = ArtifactService(mock_client)
@@ -271,3 +271,156 @@ class TestArtifactService:
 
         assert status.status == "completed"
         assert mock_client.poll_studio_status.call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_suggest_reports(self, auth_tokens):
+        mock_client = AsyncMock()
+        mock_client.get_suggested_report_formats.return_value = [
+            {
+                "title": "Research Summary",
+                "description": "A comprehensive summary",
+                "prompt": "Create a research summary",
+            },
+            {
+                "title": "Executive Brief",
+                "description": "Key findings overview",
+                "prompt": "Create an executive brief",
+            },
+        ]
+
+        service = ArtifactService(mock_client)
+        suggestions = await service.suggest_reports("nb_001")
+
+        assert len(suggestions) == 2
+        assert suggestions[0].title == "Research Summary"
+        assert suggestions[0].description == "A comprehensive summary"
+        assert suggestions[1].title == "Executive Brief"
+        mock_client.get_suggested_report_formats.assert_called_once_with("nb_001", None)
+
+    @pytest.mark.asyncio
+    async def test_suggest_reports_with_source_ids(self, auth_tokens):
+        mock_client = AsyncMock()
+        mock_client.get_suggested_report_formats.return_value = [
+            {
+                "title": "Focused Report",
+                "description": "Based on selected sources",
+                "prompt": "Create focused report",
+            },
+        ]
+
+        service = ArtifactService(mock_client)
+        suggestions = await service.suggest_reports("nb_001", ["src_001", "src_002"])
+
+        assert len(suggestions) == 1
+        mock_client.get_suggested_report_formats.assert_called_once_with(
+            "nb_001", ["src_001", "src_002"]
+        )
+
+
+class TestConversationService:
+    @pytest.mark.asyncio
+    async def test_configure_with_mode(self, auth_tokens):
+        from notebooklm.services import ConversationService
+        from notebooklm.services.conversation import ChatMode
+
+        mock_client = AsyncMock()
+        mock_client.configure_chat.return_value = None
+
+        service = ConversationService(mock_client)
+        await service.set_mode("nb_001", ChatMode.LEARNING_GUIDE)
+
+        mock_client.configure_chat.assert_called_once()
+        args = mock_client.configure_chat.call_args
+        assert args[0][0] == "nb_001"
+
+    @pytest.mark.asyncio
+    async def test_configure_with_custom_persona(self, auth_tokens):
+        from notebooklm.services import ConversationService
+        from notebooklm.rpc import ChatGoal, ChatResponseLength
+
+        mock_client = AsyncMock()
+        mock_client.configure_chat.return_value = None
+
+        service = ConversationService(mock_client)
+        await service.configure(
+            "nb_001",
+            goal=ChatGoal.CUSTOM,
+            response_length=ChatResponseLength.LONGER,
+            custom_prompt="Act as a physics tutor",
+        )
+
+        mock_client.configure_chat.assert_called_once_with(
+            "nb_001",
+            ChatGoal.CUSTOM,
+            ChatResponseLength.LONGER,
+            "Act as a physics tutor",
+        )
+
+
+class TestNotebookServiceExtended:
+    @pytest.mark.asyncio
+    async def test_get_description(self, auth_tokens):
+        mock_client = AsyncMock()
+        mock_client.get_notebook_description.return_value = {
+            "summary": "This notebook covers machine learning basics.",
+            "suggested_topics": [
+                {
+                    "question": "What is supervised learning?",
+                    "prompt": "Explain supervised learning",
+                },
+                {
+                    "question": "How does backpropagation work?",
+                    "prompt": "Explain backpropagation",
+                },
+            ],
+        }
+
+        service = NotebookService(mock_client)
+        description = await service.get_description("nb_001")
+
+        assert description.summary == "This notebook covers machine learning basics."
+        assert len(description.suggested_topics) == 2
+        assert (
+            description.suggested_topics[0].question == "What is supervised learning?"
+        )
+        mock_client.get_notebook_description.assert_called_once_with("nb_001")
+
+    @pytest.mark.asyncio
+    async def test_get_description_empty_topics(self, auth_tokens):
+        mock_client = AsyncMock()
+        mock_client.get_notebook_description.return_value = {
+            "summary": "A notebook with no suggestions yet.",
+            "suggested_topics": [],
+        }
+
+        service = NotebookService(mock_client)
+        description = await service.get_description("nb_001")
+
+        assert description.summary == "A notebook with no suggestions yet."
+        assert len(description.suggested_topics) == 0
+
+
+class TestSourceServiceExtended:
+    @pytest.mark.asyncio
+    async def test_add_drive_file(self, auth_tokens):
+        mock_client = AsyncMock()
+        mock_client.add_source_drive.return_value = [
+            [[["src_drive_001"], "My Google Doc", [None, 0], [None, 2]]]
+        ]
+
+        service = SourceService(mock_client)
+        source = await service.add_drive_file(
+            "nb_001",
+            file_id="1abc123xyz",
+            title="My Google Doc",
+            mime_type="application/vnd.google-apps.document",
+        )
+
+        assert source.id == "src_drive_001"
+        assert source.title == "My Google Doc"
+        mock_client.add_source_drive.assert_called_once_with(
+            "nb_001",
+            "1abc123xyz",
+            "My Google Doc",
+            "application/vnd.google-apps.document",
+        )
