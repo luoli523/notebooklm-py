@@ -14,6 +14,13 @@ from notebooklm.notebooklm_cli import (
     ARTIFACT_TYPE_DISPLAY,
     ARTIFACT_TYPE_MAP,
 )
+from notebooklm.types import (
+    Notebook,
+    Source,
+    Artifact,
+    GenerationStatus,
+    Note,
+)
 
 
 @pytest.fixture
@@ -204,10 +211,10 @@ class TestListNotebooks:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_notebooks = AsyncMock(
+            mock_client.notebooks.list = AsyncMock(
                 return_value=[
-                    ["nb_001", "First Notebook", None, None, 1704067200000],
-                    ["nb_002", "Second Notebook", None, None, 1704153600000],
+                    Notebook(id="nb_001", title="First Notebook", created_at=datetime(2024, 1, 1)),
+                    Notebook(id="nb_002", title="Second Notebook", created_at=datetime(2024, 1, 2)),
                 ]
             )
             mock_client_cls.return_value = mock_client
@@ -236,8 +243,8 @@ class TestCreateNotebook:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.create_notebook = AsyncMock(
-                return_value=["nb_new", "My Research", None, None, 1704067200000]
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(id="nb_new", title="My Research", created_at=datetime(2024, 1, 1))
             )
             mock_client_cls.return_value = mock_client
 
@@ -426,7 +433,7 @@ class TestNotebookCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.delete_notebook = AsyncMock(return_value=None)
+            mock_client.notebooks.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -435,58 +442,41 @@ class TestNotebookCommandsWithMock:
                 result = runner.invoke(cli, ["notebook", "delete", "-n", "nb_to_delete", "-y"])
 
             assert result.exit_code == 0
-            mock_client.delete_notebook.assert_called_once_with("nb_to_delete")
+            mock_client.notebooks.delete.assert_called_once_with("nb_to_delete")
 
     def test_notebook_rename(self, runner, mock_auth):
-        # Mock the NotebookService since rename uses it
-        mock_notebook = MagicMock()
-        mock_notebook.id = "nb_123"
-        mock_notebook.title = "New Title"
-
         with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client.notebooks.rename = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
-            # Patch where NotebookService is used, not where it's defined
-            with patch("notebooklm.notebooklm_cli.NotebookService") as mock_service_cls:
-                mock_service = MagicMock()
-                mock_service.rename = AsyncMock(return_value=mock_notebook)
-                mock_service_cls.return_value = mock_service
+            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                # notebook rename: NEW_TITLE is positional, notebook ID via -n
+                result = runner.invoke(cli, ["notebook", "rename", "New Title", "-n", "nb_123"])
 
-                with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                    mock_fetch.return_value = ("csrf", "session")
-                    # notebook rename: NEW_TITLE is positional, notebook ID via -n
-                    result = runner.invoke(cli, ["notebook", "rename", "New Title", "-n", "nb_123"])
-
-                assert result.exit_code == 0
-                assert "nb_123" in result.output or "New Title" in result.output
+            assert result.exit_code == 0
+            mock_client.notebooks.rename.assert_called_once_with("nb_123", "New Title")
 
 
 class TestSourceCommandsWithMock:
     def test_source_list(self, runner, mock_auth):
-        # Mock the SourceService since source_list uses it
-        mock_source = MagicMock()
-        mock_source.id = "src_1"
-        mock_source.title = "Source One"
-        mock_source.source_type = "url"
-        mock_source.created_at = None
-
         with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client.sources.list = AsyncMock(
+                return_value=[
+                    Source(id="src_1", title="Source One"),
+                ]
+            )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.services.sources.SourceService") as mock_service_cls:
-                mock_service = MagicMock()
-                mock_service.list = AsyncMock(return_value=[mock_source])
-                mock_service_cls.return_value = mock_service
-
-                with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                    mock_fetch.return_value = ("csrf", "session")
-                    result = runner.invoke(cli, ["source", "list", "-n", "nb_123"])
+            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+                mock_fetch.return_value = ("csrf", "session")
+                result = runner.invoke(cli, ["source", "list", "-n", "nb_123"])
 
             assert result.exit_code == 0
             assert "Source One" in result.output or "src_1" in result.output
@@ -496,8 +486,8 @@ class TestSourceCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.add_source_url = AsyncMock(
-                return_value=["src_new", "https://example.com", [None, None]]
+            mock_client.sources.add_url = AsyncMock(
+                return_value=Source(id="src_new", title="https://example.com", url="https://example.com")
             )
             mock_client_cls.return_value = mock_client
 
@@ -514,8 +504,8 @@ class TestSourceCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.add_source_text = AsyncMock(
-                return_value=["src_text", "My Text Source", [None, 100]]
+            mock_client.sources.add_text = AsyncMock(
+                return_value=Source(id="src_text", title="My Text Source")
             )
             mock_client_cls.return_value = mock_client
 
@@ -533,7 +523,7 @@ class TestSourceCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.delete_source = AsyncMock(return_value=None)
+            mock_client.sources.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -543,7 +533,7 @@ class TestSourceCommandsWithMock:
                 )
 
             assert result.exit_code == 0
-            mock_client.delete_source.assert_called_once_with("nb_123", "src_123")
+            mock_client.sources.delete.assert_called_once_with("nb_123", "src_123")
 
 
 class TestArtifactCommandsWithMock:
@@ -552,13 +542,13 @@ class TestArtifactCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_artifacts = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(
                 return_value=[
-                    ["art_1", "Quiz One", 4, None, 3, None, None, None, None, ["", [2]]],
-                    ["art_2", "Briefing Doc", 2, None, 3],
+                    Artifact(id="art_1", title="Quiz One", artifact_type=4, status=3),  # 3=completed
+                    Artifact(id="art_2", title="Briefing Doc", artifact_type=2, status=3),
                 ]
             )
-            mock_client.list_mind_maps = AsyncMock(return_value=[])
+            mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -573,8 +563,8 @@ class TestArtifactCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_artifacts = AsyncMock(return_value=[])
-            mock_client.list_mind_maps = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(return_value=[])
+            mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_1", ["mm_1", "{}", None, None, "My Mind Map"]],
                 ]
@@ -593,7 +583,7 @@ class TestArtifactCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_mind_maps = AsyncMock(
+            mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_123", ["mm_123", "{}", None, None, "Old Title"]],
                 ]
@@ -614,12 +604,12 @@ class TestArtifactCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_mind_maps = AsyncMock(
+            mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_456", ["mm_456", "{}", None, None, "Mind Map Title"]],
                 ]
             )
-            mock_client.delete_note = AsyncMock(return_value=None)
+            mock_client.notes.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -630,7 +620,7 @@ class TestArtifactCommandsWithMock:
 
             assert result.exit_code == 0
             assert "Cleared mind map" in result.output
-            mock_client.delete_note.assert_called_once_with("nb_123", "mm_456")
+            mock_client.notes.delete.assert_called_once_with("nb_123", "mm_456")
 
 
 class TestNoteCommandsWithMock:
@@ -639,7 +629,7 @@ class TestNoteCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_notes = AsyncMock(
+            mock_client.notes.list = AsyncMock(
                 return_value=[
                     ["note_1", ["Note Title", "<p>Content</p>"]],
                     ["note_2", ["Another Note", "<p>More content</p>"]],
@@ -658,7 +648,7 @@ class TestNoteCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.create_note = AsyncMock(
+            mock_client.notes.create = AsyncMock(
                 return_value=["note_new", ["My Note", "<p>Hello</p>"]]
             )
             mock_client_cls.return_value = mock_client
@@ -677,7 +667,7 @@ class TestNoteCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.delete_note = AsyncMock(return_value=None)
+            mock_client.notes.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -695,7 +685,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_audio = AsyncMock(
+            mock_client.artifacts.generate_audio = AsyncMock(
                 return_value={"artifact_id": "audio_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -712,7 +702,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_video = AsyncMock(
+            mock_client.artifacts.generate_video = AsyncMock(
                 return_value={"artifact_id": "video_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -728,7 +718,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_quiz = AsyncMock(
+            mock_client.artifacts.generate_quiz = AsyncMock(
                 return_value={"artifact_id": "quiz_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -744,7 +734,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_flashcards = AsyncMock(
+            mock_client.artifacts.generate_flashcards = AsyncMock(
                 return_value={"artifact_id": "flash_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -760,7 +750,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_slide_deck = AsyncMock(
+            mock_client.artifacts.generate_slide_deck = AsyncMock(
                 return_value={"artifact_id": "slides_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -776,7 +766,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_infographic = AsyncMock(
+            mock_client.artifacts.generate_infographic = AsyncMock(
                 return_value={"artifact_id": "info_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -792,7 +782,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_mind_map = AsyncMock(
+            mock_client.artifacts.generate_mind_map = AsyncMock(
                 return_value={"mind_map": {"name": "Root", "children": []}, "note_ids": ["n1"]}
             )
             mock_client_cls.return_value = mock_client
@@ -808,7 +798,7 @@ class TestGenerateCommandsWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.generate_report = AsyncMock(
+            mock_client.artifacts.generate_report = AsyncMock(
                 return_value={"artifact_id": "report_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
@@ -828,7 +818,7 @@ class TestDownloadCommandsWithMock:
             mock_client.__aexit__ = AsyncMock(return_value=None)
             # list_artifacts returns artifacts in format: [id, title, type, created_at, status, ...]
             # type 1 = AUDIO, status 3 = completed
-            mock_client.list_artifacts = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(
                 return_value=[["audio_123", "My Audio", 1, 1234567890, 3]]
             )
 
@@ -857,7 +847,7 @@ class TestDownloadCommandsWithMock:
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             # type 3 = VIDEO, status 3 = completed
-            mock_client.list_artifacts = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(
                 return_value=[["vid_1", "My Video", 3, 1234567890, 3]]
             )
 
@@ -889,7 +879,7 @@ class TestDownloadCommandsAdvanced:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_artifacts = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(
                 return_value=[["audio_123", "My Audio", 1, 1234567890, 3]]
             )
             mock_client_cls.return_value = mock_client
@@ -908,7 +898,7 @@ class TestDownloadCommandsAdvanced:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_artifacts = AsyncMock(return_value=[])
+            mock_client.artifacts.list = AsyncMock(return_value=[])
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -924,7 +914,7 @@ class TestDownloadCommandsAdvanced:
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             # type 7 = INFOGRAPHIC, status 3 = completed
-            mock_client.list_artifacts = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(
                 return_value=[["info_1", "My Infographic", 7, 1234567890, 3]]
             )
 
@@ -952,7 +942,7 @@ class TestDownloadCommandsAdvanced:
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
             # type 8 = SLIDE_DECK, status 3 = completed
-            mock_client.list_artifacts = AsyncMock(
+            mock_client.artifacts.list = AsyncMock(
                 return_value=[["slide_1", "My Slides", 8, 1234567890, 3]]
             )
 
@@ -984,7 +974,7 @@ class TestNotebookListWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            mock_client.list_notebooks = AsyncMock(return_value=[])
+            mock_client.notebooks.list = AsyncMock(return_value=[])
             mock_client_cls.return_value = mock_client
 
             with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
@@ -1000,12 +990,10 @@ class TestNotebookListWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            # Notebooks returned as: [title, ..., id, ...] based on from_api_response
-            # data[0] = title, data[2] = id
-            mock_client.list_notebooks = AsyncMock(
+            mock_client.notebooks.list = AsyncMock(
                 return_value=[
-                    ["First Notebook", None, "nb_1", None, None, [False, False, None, None, None, [1234567890]]],
-                    ["Second Notebook", None, "nb_2", None, None, [False, False, None, None, None, [1234567890]]],
+                    Notebook(id="nb_1", title="First Notebook", created_at=datetime(2024, 1, 1)),
+                    Notebook(id="nb_2", title="Second Notebook", created_at=datetime(2024, 1, 2)),
                 ]
             )
             mock_client_cls.return_value = mock_client
@@ -1023,9 +1011,8 @@ class TestNotebookListWithMock:
             mock_client = MagicMock()
             mock_client.__aenter__ = AsyncMock(return_value=mock_client)
             mock_client.__aexit__ = AsyncMock(return_value=None)
-            # create returns: [title, ..., id, ...]
-            mock_client.create_notebook = AsyncMock(
-                return_value=["Test Notebook", None, "new_nb_id", None, None, []]
+            mock_client.notebooks.create = AsyncMock(
+                return_value=Notebook(id="new_nb_id", title="Test Notebook", created_at=datetime(2024, 1, 1))
             )
             mock_client_cls.return_value = mock_client
 
@@ -1046,7 +1033,7 @@ class TestQueryCommand:
             mock_client.__aexit__ = AsyncMock(return_value=None)
 
             # Mock ask method which returns a dict
-            mock_client.ask = AsyncMock(
+            mock_client.chat.ask = AsyncMock(
                 return_value={
                     "answer": "This is a response",
                     "conversation_id": "conv_123",

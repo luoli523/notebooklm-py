@@ -39,15 +39,13 @@ from .auth import (
     fetch_tokens,
     DEFAULT_STORAGE_PATH,
 )
-from .api_client import NotebookLMClient
-from .services import (
-    NotebookService,
-    SourceService,
-    ArtifactService,
-    ConversationService,
-)
-from .services.conversation import ChatMode
-from .rpc import (
+from .client import NotebookLMClient
+from .types import (
+    Notebook,
+    Source,
+    Artifact,
+    Note,
+    ChatMode,
     AudioFormat,
     AudioLength,
     VideoFormat,
@@ -419,10 +417,7 @@ def use_notebook(ctx, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                from .services.notebooks import NotebookService
-
-                service = NotebookService(client)
-                return await service.get(notebook_id)
+                return await client.notebooks.get(notebook_id)
 
         nb = run_async(_get())
 
@@ -561,8 +556,7 @@ def list_notebooks_shortcut(ctx, json_output):
 
         async def _list():
             async with NotebookLMClient(auth) as client:
-                service = NotebookService(client)
-                return await service.list()
+                return await client.notebooks.list()
 
         notebooks = run_async(_list())
 
@@ -623,8 +617,7 @@ def create_notebook_shortcut(ctx, title, json_output):
 
         async def _create():
             async with NotebookLMClient(auth) as client:
-                service = NotebookService(client)
-                return await service.create(title)
+                return await client.notebooks.create(title)
 
         notebook = run_async(_create())
 
@@ -699,7 +692,7 @@ def ask_shortcut(ctx, question, notebook_id, conversation_id, new_conversation):
                 # Query history to get the last conversation
                 async def _get_history():
                     async with NotebookLMClient(auth) as client:
-                        return await client.get_conversation_history(nb_id, limit=1)
+                        return await client.chat.get_history(nb_id, limit=1)
 
                 try:
                     history = run_async(_get_history())
@@ -720,7 +713,7 @@ def ask_shortcut(ctx, question, notebook_id, conversation_id, new_conversation):
 
         async def _ask():
             async with NotebookLMClient(auth) as client:
-                return await client.ask(
+                return await client.chat.ask(
                     nb_id, question, conversation_id=effective_conv_id
                 )
 
@@ -764,7 +757,6 @@ def history_shortcut(ctx, notebook_id, limit, clear):
       notebooklm history --clear          # Clear local cache
     """
     try:
-        from .services import ConversationService
 
         if clear:
             # Clear local cache (no notebook required)
@@ -773,8 +765,7 @@ def history_shortcut(ctx, notebook_id, limit, clear):
 
             async def _clear():
                 async with NotebookLMClient(auth) as client:
-                    service = ConversationService(client)
-                    return service.clear_cache()
+                    return client.chat.clear_cache()
 
             result = run_async(_clear())
             if result:
@@ -790,8 +781,7 @@ def history_shortcut(ctx, notebook_id, limit, clear):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                service = ConversationService(client)
-                return await service.get_history(nb_id, limit=limit)
+                return await client.chat.get_history(nb_id, limit=limit)
 
         history = run_async(_get())
         if history:
@@ -890,8 +880,7 @@ def notebook_delete(ctx, notebook_id, yes):
 
         async def _delete():
             async with NotebookLMClient(auth) as client:
-                service = NotebookService(client)
-                return await service.delete(notebook_id)
+                return await client.notebooks.delete(notebook_id)
 
         success = run_async(_delete())
         if success:
@@ -926,12 +915,11 @@ def notebook_rename(ctx, new_title, notebook_id):
 
         async def _rename():
             async with NotebookLMClient(auth) as client:
-                service = NotebookService(client)
-                return await service.rename(notebook_id, new_title)
+                await client.notebooks.rename(notebook_id, new_title)
 
-        nb = run_async(_rename())
-        console.print(f"[green]Renamed notebook:[/green] {nb.id}")
-        console.print(f"[bold]New title:[/bold] {nb.title}")
+        run_async(_rename())
+        console.print(f"[green]Renamed notebook:[/green] {notebook_id}")
+        console.print(f"[bold]New title:[/bold] {new_title}")
 
     except Exception as e:
         handle_error(e)
@@ -955,7 +943,7 @@ def notebook_share(ctx, notebook_id):
 
         async def _share():
             async with NotebookLMClient(auth) as client:
-                return await client.share_project(notebook_id)
+                return await client.notebooks.share(notebook_id)
 
         result = run_async(_share())
         if result:
@@ -993,8 +981,7 @@ def notebook_summary(ctx, notebook_id, topics):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                service = NotebookService(client)
-                return await service.get_description(notebook_id)
+                return await client.notebooks.get_description(notebook_id)
 
         description = run_async(_get())
         if description and description.summary:
@@ -1031,7 +1018,7 @@ def notebook_analytics(ctx, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                return await client.get_project_analytics(notebook_id)
+                return await client.notebooks.get_analytics(notebook_id)
 
         analytics = run_async(_get())
         if analytics:
@@ -1144,8 +1131,6 @@ def notebook_configure(ctx, notebook_id, chat_mode, persona, response_length):
             from .rpc import ChatGoal, ChatResponseLength
 
             async with NotebookLMClient(auth) as client:
-                service = ConversationService(client)
-
                 if chat_mode:
                     mode_map = {
                         "default": ChatMode.DEFAULT,
@@ -1153,7 +1138,7 @@ def notebook_configure(ctx, notebook_id, chat_mode, persona, response_length):
                         "concise": ChatMode.CONCISE,
                         "detailed": ChatMode.DETAILED,
                     }
-                    await service.set_mode(nb_id, mode_map[chat_mode])
+                    await client.chat.set_mode(nb_id, mode_map[chat_mode])
                     return f"Chat mode set to: {chat_mode}"
 
                 goal = ChatGoal.CUSTOM if persona else None
@@ -1166,7 +1151,7 @@ def notebook_configure(ctx, notebook_id, chat_mode, persona, response_length):
                     }
                     length = length_map[response_length]
 
-                await service.configure(
+                await client.chat.configure(
                     nb_id, goal=goal, response_length=length, custom_prompt=persona
                 )
 
@@ -1217,7 +1202,7 @@ def notebook_research(ctx, query, notebook_id, source, mode, import_all):
                 console.print(
                     f"[yellow]Starting {mode} research on {source}...[/yellow]"
                 )
-                result = await client.start_research(notebook_id, query, source, mode)
+                result = await client.research.start(notebook_id, query, source, mode)
                 if not result:
                     return None, None
 
@@ -1227,7 +1212,7 @@ def notebook_research(ctx, query, notebook_id, source, mode, import_all):
                 import time
 
                 for _ in range(60):
-                    status = await client.poll_research(notebook_id)
+                    status = await client.research.poll(notebook_id)
                     if status.get("status") == "completed":
                         return task_id, status
                     elif status.get("status") == "no_research":
@@ -1250,7 +1235,7 @@ def notebook_research(ctx, query, notebook_id, source, mode, import_all):
 
                 async def _import():
                     async with NotebookLMClient(auth) as client:
-                        return await client.import_research_sources(
+                        return await client.research.import_sources(
                             notebook_id, task_id, sources
                         )
 
@@ -1274,7 +1259,7 @@ def notebook_featured(ctx, limit):
 
         async def _list():
             async with NotebookLMClient(auth) as client:
-                return await client.list_featured_projects(page_size=limit)
+                return await client.notebooks.list_featured(page_size=limit)
 
         projects = run_async(_list())
 
@@ -1338,14 +1323,10 @@ def source_list(ctx, notebook_id, json_output):
 
         async def _list():
             async with NotebookLMClient(auth) as client:
-                from .services.sources import SourceService
-
-                service = SourceService(client)
-                sources = await service.list(nb_id)
+                sources = await client.sources.list(nb_id)
                 nb = None
                 if json_output:
-                    nb_service = NotebookService(client)
-                    nb = await nb_service.get(nb_id)
+                    nb = await client.notebooks.get(nb_id)
                 return sources, nb
 
         sources, nb = run_async(_list())
@@ -1465,18 +1446,17 @@ def source_add(ctx, content, notebook_id, source_type, title, mime_type, json_ou
 
         async def _add():
             async with NotebookLMClient(auth) as client:
-                service = SourceService(client)
                 if detected_type == "url":
-                    return await service.add_url(nb_id, content)
+                    return await client.sources.add_url(nb_id, content)
                 elif detected_type == "youtube":
-                    return await service.add_url(nb_id, content)
+                    return await client.sources.add_url(nb_id, content)
                 elif detected_type == "text":
                     # Use file_content if we read from a file, otherwise use content directly
                     text_content = file_content if file_content is not None else content
                     text_title = file_title or "Untitled"
-                    return await service.add_text(nb_id, text_title, text_content)
+                    return await client.sources.add_text(nb_id, text_title, text_content)
                 elif detected_type == "file":
-                    return await service.add_file(nb_id, content, mime_type)
+                    return await client.sources.add_file(nb_id, content, mime_type)
 
         if not json_output:
             with console.status(f"Adding {detected_type} source..."):
@@ -1523,10 +1503,7 @@ def source_get(ctx, source_id, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                from .services.sources import SourceService
-
-                service = SourceService(client)
-                return await service.get(nb_id, source_id)
+                return await client.sources.get(nb_id, source_id)
 
         source = run_async(_get())
         if source:
@@ -1571,8 +1548,7 @@ def source_delete(ctx, source_id, notebook_id, yes):
 
         async def _delete():
             async with NotebookLMClient(auth) as client:
-                service = SourceService(client)
-                return await service.delete(nb_id, source_id)
+                return await client.sources.delete(nb_id, source_id)
 
         success = run_async(_delete())
         if success:
@@ -1604,10 +1580,8 @@ def source_rename(ctx, source_id, new_title, notebook_id):
 
         async def _rename():
             async with NotebookLMClient(auth) as client:
-                from .services.sources import SourceService
 
-                service = SourceService(client)
-                return await service.rename(nb_id, source_id, new_title)
+                return await client.sources.rename(nb_id, source_id, new_title)
 
         source = run_async(_rename())
         console.print(f"[green]Renamed source:[/green] {source.id}")
@@ -1636,10 +1610,7 @@ def source_refresh(ctx, source_id, notebook_id):
 
         async def _refresh():
             async with NotebookLMClient(auth) as client:
-                from .services.sources import SourceService
-
-                service = SourceService(client)
-                return await service.refresh(nb_id, source_id)
+                return await client.sources.refresh(nb_id, source_id)
 
         with console.status(f"Refreshing source..."):
             source = run_async(_refresh())
@@ -1690,8 +1661,7 @@ def source_add_drive(ctx, file_id, title, notebook_id, mime_type):
 
         async def _add():
             async with NotebookLMClient(auth) as client:
-                service = SourceService(client)
-                return await service.add_drive_file(nb_id, file_id, title, mime)
+                return await client.sources.add_drive(nb_id, file_id, title, mime)
 
         with console.status("Adding Drive source..."):
             source = run_async(_add())
@@ -1767,15 +1737,13 @@ def artifact_list(ctx, notebook_id, artifact_type, json_output):
 
         async def _list():
             async with NotebookLMClient(auth) as client:
-                from .services.artifacts import ArtifactService, Artifact
 
-                service = ArtifactService(client)
-                artifacts = await service.list(nb_id, artifact_type=type_filter)
+                artifacts = await client.artifacts.list(nb_id, artifact_type=type_filter)
 
                 # Also fetch mind maps (stored separately with notes)
                 # Only include if type filter is "all" or "mind-map" (type 5)
                 if type_filter is None or type_filter == 5:
-                    mind_maps = await client.list_mind_maps(nb_id)
+                    mind_maps = await client.notes.list_mind_maps(nb_id)
                     for mm in mind_maps:
                         if isinstance(mm, list) and len(mm) > 0:
                             mm_id = mm[0] if len(mm) > 0 else ""
@@ -1801,8 +1769,7 @@ def artifact_list(ctx, notebook_id, artifact_type, json_output):
 
                 nb = None
                 if json_output:
-                    nb_service = NotebookService(client)
-                    nb = await nb_service.get(nb_id)
+                    nb = await client.notebooks.get(nb_id)
                 return artifacts, nb
 
         artifacts, nb = run_async(_list())
@@ -1895,10 +1862,7 @@ def artifact_get(ctx, artifact_id, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                from .services.artifacts import ArtifactService
-
-                service = ArtifactService(client)
-                return await service.get(nb_id, artifact_id)
+                return await client.artifacts.get(nb_id, artifact_id)
 
         artifact = run_async(_get())
         if artifact:
@@ -1943,16 +1907,14 @@ def artifact_rename(ctx, artifact_id, new_title, notebook_id):
             async with NotebookLMClient(auth) as client:
                 # Check if this is a mind map (stored with notes, not artifacts)
                 # Mind maps cannot be renamed - reject immediately
-                mind_maps = await client.list_mind_maps(notebook_id)
+                mind_maps = await client.notes.list_mind_maps(notebook_id)
                 for mm in mind_maps:
                     if mm[0] == artifact_id:
                         raise click.ClickException("Mind maps cannot be renamed")
 
                 # Regular artifact - use rename_artifact
-                from .services.artifacts import ArtifactService
 
-                service = ArtifactService(client)
-                return await service.rename(notebook_id, artifact_id, new_title)
+                return await client.artifacts.rename(notebook_id, artifact_id, new_title)
 
         artifact = run_async(_rename())
         console.print(f"[green]Renamed artifact:[/green] {artifact.id}")
@@ -1985,17 +1947,14 @@ def artifact_delete(ctx, artifact_id, notebook_id, yes):
             async with NotebookLMClient(auth) as client:
                 # Check if this is a mind map (stored with notes)
                 # Mind maps can only be cleared, not truly deleted
-                mind_maps = await client.list_mind_maps(notebook_id)
+                mind_maps = await client.notes.list_mind_maps(notebook_id)
                 for mm in mind_maps:
                     if mm[0] == artifact_id:
-                        await client.delete_note(notebook_id, artifact_id)
+                        await client.notes.delete(notebook_id, artifact_id)
                         return "mind_map"
 
                 # Regular artifact
-                from .services.artifacts import ArtifactService
-
-                service = ArtifactService(client)
-                await service.delete(notebook_id, artifact_id)
+                await client.artifacts.delete(notebook_id, artifact_id)
                 return "artifact"
 
         if not yes and not click.confirm(f"Delete artifact {artifact_id}?"):
@@ -2037,9 +1996,9 @@ def artifact_export(ctx, artifact_id, notebook_id, title, export_type):
 
         async def _export():
             async with NotebookLMClient(auth) as client:
-                artifact = await client.get_artifact(notebook_id, artifact_id)
+                artifact = await client.artifacts.get(notebook_id, artifact_id)
                 content = str(artifact) if artifact else ""
-                return await client.export_artifact(
+                return await client.artifacts.export(
                     notebook_id, artifact_id, content, title, export_type
                 )
 
@@ -2073,7 +2032,7 @@ def artifact_poll(ctx, task_id, notebook_id):
 
         async def _poll():
             async with NotebookLMClient(auth) as client:
-                return await client.poll_studio_status(notebook_id, task_id)
+                return await client.artifacts.poll_status(notebook_id, task_id)
 
         status = run_async(_poll())
         console.print("[bold cyan]Task Status:[/bold cyan]")
@@ -2103,9 +2062,8 @@ def artifact_suggestions(ctx, notebook_id, source_ids, json_output):
 
         async def _suggest():
             async with NotebookLMClient(auth) as client:
-                service = ArtifactService(client)
                 ids = list(source_ids) if source_ids else None
-                return await service.suggest_reports(nb_id, ids)
+                return await client.artifacts.suggest_reports(nb_id, ids)
 
         suggestions = run_async(_suggest())
 
@@ -2235,7 +2193,7 @@ def generate_audio(
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_audio(
+                result = await client.artifacts.generate_audio(
                     nb_id,
                     language=language,
                     instructions=description or None,
@@ -2251,8 +2209,7 @@ def generate_audio(
                         console.print(
                             f"[yellow]Generating audio...[/yellow] Task: {result.get('artifact_id')}"
                         )
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, result["artifact_id"], poll_interval=10.0
                     )
                 return result
@@ -2370,7 +2327,7 @@ def generate_video(
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_video(
+                result = await client.artifacts.generate_video(
                     nb_id,
                     language=language,
                     instructions=description or None,
@@ -2386,8 +2343,7 @@ def generate_video(
                         console.print(
                             f"[yellow]Generating video...[/yellow] Task: {result.get('artifact_id')}"
                         )
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, result["artifact_id"], poll_interval=10.0, timeout=600.0
                     )
                 return result
@@ -2488,7 +2444,7 @@ def generate_slide_deck(
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_slide_deck(
+                result = await client.artifacts.generate_slide_deck(
                     nb_id,
                     language=language,
                     instructions=description or None,
@@ -2503,8 +2459,7 @@ def generate_slide_deck(
                     console.print(
                         f"[yellow]Generating slide deck...[/yellow] Task: {result.get('artifact_id')}"
                     )
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, result["artifact_id"], poll_interval=10.0
                     )
                 return result
@@ -2567,7 +2522,7 @@ def generate_quiz(ctx, description, notebook_id, quantity, difficulty, wait):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_quiz(
+                result = await client.artifacts.generate_quiz(
                     nb_id,
                     instructions=description or None,
                     quantity=quantity_map[quantity],
@@ -2582,8 +2537,7 @@ def generate_quiz(ctx, description, notebook_id, quantity, difficulty, wait):
                 )
                 if wait and task_id:
                     console.print(f"[yellow]Generating quiz...[/yellow]")
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, task_id, poll_interval=5.0
                     )
                 return result
@@ -2650,7 +2604,7 @@ def generate_flashcards(ctx, description, notebook_id, quantity, difficulty, wai
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_flashcards(
+                result = await client.artifacts.generate_flashcards(
                     nb_id,
                     instructions=description or None,
                     quantity=quantity_map[quantity],
@@ -2665,8 +2619,7 @@ def generate_flashcards(ctx, description, notebook_id, quantity, difficulty, wai
                 )
                 if wait and task_id:
                     console.print(f"[yellow]Generating flashcards...[/yellow]")
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, task_id, poll_interval=5.0
                     )
                 return result
@@ -2740,7 +2693,7 @@ def generate_infographic(
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_infographic(
+                result = await client.artifacts.generate_infographic(
                     nb_id,
                     language=language,
                     instructions=description or None,
@@ -2756,8 +2709,7 @@ def generate_infographic(
                 )
                 if wait and task_id:
                     console.print(f"[yellow]Generating infographic...[/yellow]")
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, task_id, poll_interval=5.0
                     )
                 return result
@@ -2808,7 +2760,7 @@ def generate_data_table(ctx, description, notebook_id, language, wait):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_data_table(
+                result = await client.artifacts.generate_data_table(
                     nb_id, language=language, instructions=description
                 )
 
@@ -2820,8 +2772,7 @@ def generate_data_table(ctx, description, notebook_id, language, wait):
                 )
                 if wait and task_id:
                     console.print(f"[yellow]Generating data table...[/yellow]")
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, task_id, poll_interval=5.0
                     )
                 return result
@@ -2861,7 +2812,7 @@ def generate_mind_map(ctx, notebook_id):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                return await client.generate_mind_map(nb_id)
+                return await client.artifacts.generate_mind_map(nb_id)
 
         with console.status("Generating mind map..."):
             result = run_async(_generate())
@@ -2952,7 +2903,7 @@ def generate_report_cmd(ctx, description, report_format, notebook_id, wait):
 
         async def _generate():
             async with NotebookLMClient(auth) as client:
-                result = await client.generate_report(
+                result = await client.artifacts.generate_report(
                     nb_id,
                     report_format=report_format_enum,
                     custom_prompt=custom_prompt,
@@ -2964,8 +2915,7 @@ def generate_report_cmd(ctx, description, report_format, notebook_id, wait):
                 task_id = result.get("artifact_id")
                 if wait and task_id:
                     console.print(f"[yellow]Generating {format_display}...[/yellow]")
-                    service = ArtifactService(client)
-                    return await service.wait_for_completion(
+                    return await client.artifacts.wait_for_completion(
                         nb_id, task_id, poll_interval=5.0
                     )
                 return result
@@ -3090,7 +3040,7 @@ async def _download_artifacts_generic(
                 raise ValueError(f"Unknown artifact type: {artifact_type_name}")
 
             # Fetch artifacts
-            all_artifacts = await client.list_artifacts(nb_id)
+            all_artifacts = await client.artifacts.list(nb_id)
 
             # Filter by type and status=3 (completed)
             # Artifact structure: [id, title, type, created_at, status, ...]
@@ -3781,7 +3731,7 @@ def note_list(ctx, notebook_id):
 
         async def _list():
             async with NotebookLMClient(auth) as client:
-                return await client.list_notes(nb_id)
+                return await client.notes.list(nb_id)
 
         notes = run_async(_list())
 
@@ -3835,7 +3785,7 @@ def note_create(ctx, content, notebook_id, title):
 
         async def _create():
             async with NotebookLMClient(auth) as client:
-                return await client.create_note(nb_id, title, content)
+                return await client.notes.create(nb_id, title, content)
 
         result = run_async(_create())
 
@@ -3868,7 +3818,7 @@ def note_get(ctx, note_id, notebook_id):
 
         async def _get():
             async with NotebookLMClient(auth) as client:
-                return await client.get_note(nb_id, note_id)
+                return await client.notes.get(nb_id, note_id)
 
         n = run_async(_get())
 
@@ -3912,7 +3862,7 @@ def note_save(ctx, note_id, notebook_id, title, content):
 
         async def _save():
             async with NotebookLMClient(auth) as client:
-                return await client.update_note(
+                return await client.notes.update(
                     nb_id, note_id, content=content, title=title
                 )
 
@@ -3944,7 +3894,7 @@ def note_rename(ctx, note_id, new_title, notebook_id):
         async def _rename():
             async with NotebookLMClient(auth) as client:
                 # Get current note to preserve content
-                note = await client.get_note(nb_id, note_id)
+                note = await client.notes.get(nb_id, note_id)
                 if not note:
                     return None, "Note not found"
 
@@ -3955,7 +3905,7 @@ def note_rename(ctx, note_id, new_title, notebook_id):
                     if len(inner) > 1 and isinstance(inner[1], str):
                         content = inner[1]
 
-                await client.update_note(
+                await client.notes.update(
                     nb_id, note_id, content=content, title=new_title
                 )
                 return True, None
@@ -3993,7 +3943,7 @@ def note_delete(ctx, note_id, notebook_id, yes):
 
         async def _delete():
             async with NotebookLMClient(auth) as client:
-                await client.delete_note(nb_id, note_id)
+                await client.notes.delete(nb_id, note_id)
                 # If no exception was raised, delete succeeded
                 return True
 
@@ -4028,7 +3978,7 @@ def share_audio_cmd(ctx, notebook_id, public):
 
         async def _share():
             async with NotebookLMClient(auth) as client:
-                return await client.share_audio(nb_id, public=public)
+                return await client.artifacts.share_audio(nb_id, public=public)
 
         result = run_async(_share())
 
