@@ -5,6 +5,25 @@ from .conftest import requires_auth
 from notebooklm import Artifact
 
 
+# Magic bytes for file type verification
+PNG_MAGIC = b'\x89PNG\r\n\x1a\n'
+MP4_FTYP = b'ftyp'  # At offset 4
+
+
+def is_png(path: str) -> bool:
+    """Check if file is a valid PNG by magic bytes."""
+    with open(path, 'rb') as f:
+        return f.read(8) == PNG_MAGIC
+
+
+def is_mp4(path: str) -> bool:
+    """Check if file is a valid MP4 by magic bytes."""
+    with open(path, 'rb') as f:
+        header = f.read(12)
+        # MP4 has 'ftyp' at offset 4
+        return len(header) >= 8 and header[4:8] == MP4_FTYP
+
+
 @requires_auth
 @pytest.mark.e2e
 class TestDownloadAudio:
@@ -19,6 +38,7 @@ class TestDownloadAudio:
                 assert result == output_path
                 assert os.path.exists(output_path)
                 assert os.path.getsize(output_path) > 0
+                assert is_mp4(output_path), "Downloaded audio is not a valid MP4 file"
             except ValueError as e:
                 if "No completed audio" in str(e):
                     pytest.skip("No completed audio artifact available")
@@ -39,6 +59,7 @@ class TestDownloadVideo:
                 assert result == output_path
                 assert os.path.exists(output_path)
                 assert os.path.getsize(output_path) > 0
+                assert is_mp4(output_path), "Downloaded video is not a valid MP4 file"
             except ValueError as e:
                 if "No completed video" in str(e):
                     pytest.skip("No completed video artifact available")
@@ -61,6 +82,7 @@ class TestDownloadInfographic:
                 assert result == output_path
                 assert os.path.exists(output_path)
                 assert os.path.getsize(output_path) > 0
+                assert is_png(output_path), "Downloaded infographic is not a valid PNG file"
             except ValueError as e:
                 if "No completed infographic" in str(e):
                     pytest.skip("No completed infographic artifact available")
@@ -82,6 +104,7 @@ class TestDownloadSlideDeck:
                 for slide_path in result:
                     assert os.path.exists(slide_path)
                     assert os.path.getsize(slide_path) > 0
+                    assert is_png(slide_path), f"Slide {slide_path} is not a valid PNG file"
             except ValueError as e:
                 if "No completed slide" in str(e):
                     pytest.skip("No completed slide deck artifact available")
