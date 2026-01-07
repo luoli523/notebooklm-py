@@ -158,7 +158,7 @@ class ChatAPI:
         Returns:
             Raw conversation history data from API.
         """
-        params = [[], None, notebook_id, limit]
+        params: list[Any] = [[], None, notebook_id, limit]
         return await self._core.rpc_call(
             RPCMethod.GET_CONVERSATION_HISTORY,
             params,
@@ -274,7 +274,7 @@ class ChatAPI:
             source_path=f"/notebook/{notebook_id}",
         )
 
-        source_ids = []
+        source_ids: list[str] = []
         if not notebook_data or not isinstance(notebook_data, list):
             return source_ids
 

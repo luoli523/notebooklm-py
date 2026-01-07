@@ -19,6 +19,7 @@ Example:
         result = await client.chat.ask(notebook_id, "What is this about?")
 """
 
+from pathlib import Path
 from typing import Optional
 
 from .auth import AuthTokens
@@ -115,7 +116,8 @@ class NotebookLMClient:
             async with await NotebookLMClient.from_storage() as client:
                 notebooks = await client.notebooks.list()
         """
-        auth = await AuthTokens.from_storage(path)
+        storage_path = Path(path) if path else None
+        auth = await AuthTokens.from_storage(storage_path)
         return cls(auth)
 
     async def refresh_auth(self) -> AuthTokens:

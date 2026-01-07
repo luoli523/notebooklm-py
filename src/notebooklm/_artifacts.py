@@ -81,7 +81,7 @@ class ArtifactsAPI:
             allow_null=True,
         )
 
-        artifacts_data = []
+        artifacts_data: list[Any] = []
         if result and isinstance(result, list) and len(result) > 0:
             artifacts_data = result[0] if isinstance(result[0], list) else result
 
@@ -1406,7 +1406,7 @@ class ArtifactsAPI:
             source_path=f"/notebook/{notebook_id}",
         )
 
-        source_ids = []
+        source_ids: list[str] = []
         if not notebook_data or not isinstance(notebook_data, list):
             return source_ids
 

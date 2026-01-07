@@ -83,6 +83,8 @@ async def handle_generation_result(
         return None
 
     # Extract task_id from various result formats
+    task_id: str | None = None
+    status: Any = result
     if isinstance(result, GenerationStatus):
         task_id = result.task_id
         status = result
@@ -91,9 +93,6 @@ async def handle_generation_result(
         status = result
     elif isinstance(result, list) and len(result) > 0:
         task_id = result[0]
-        status = result
-    else:
-        task_id = None
         status = result
 
     # Wait for completion if requested

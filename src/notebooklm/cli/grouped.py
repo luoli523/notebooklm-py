@@ -43,8 +43,9 @@ class SectionedGroup(click.Group):
         for section, cmd_names in self.command_sections.items():
             rows = []
             for name in cmd_names:
-                if name in commands and not commands[name].hidden:
-                    help_text = commands[name].get_short_help_str(limit=formatter.width)
+                cmd = commands.get(name)
+                if cmd is not None and not cmd.hidden:
+                    help_text = cmd.get_short_help_str(limit=formatter.width)
                     rows.append((name, help_text))
             if rows:
                 with formatter.section(section):
@@ -67,7 +68,7 @@ class SectionedGroup(click.Group):
         all_listed = set(sum(self.command_sections.values(), []))
         all_listed |= set(sum(self.command_groups.values(), []))
         unlisted = [(n, c) for n, c in commands.items()
-                    if n not in all_listed and not c.hidden]
+                    if n not in all_listed and c is not None and not c.hidden]
         if unlisted:
             with formatter.section("Other"):
                 formatter.write_dl([(n, c.get_short_help_str(limit=formatter.width))

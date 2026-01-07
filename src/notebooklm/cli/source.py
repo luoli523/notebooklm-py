@@ -340,9 +340,11 @@ def source_refresh(ctx, source_id, notebook_id, client_auth):
             with console.status("Refreshing source..."):
                 src = await client.sources.refresh(nb_id, resolved_id)
 
-            if src:
+            if src and src is not True:
                 console.print(f"[green]Source refreshed:[/green] {src.id}")
                 console.print(f"[bold]Title:[/bold] {src.title}")
+            elif src is True:
+                console.print(f"[green]Source refreshed:[/green] {resolved_id}")
             else:
                 console.print("[yellow]Refresh returned no result[/yellow]")
 
