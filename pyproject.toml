@@ -1,5 +1,5 @@
 [project]
-name = "notebooklm-client"
+name = "notebooklm-py"
 version = "0.1.0"
 description = "Unofficial Python client for Google NotebookLM API"
 readme = "README.md"
@@ -41,7 +41,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "mypy>=1.0.0",
 ]
-all = ["notebooklm[browser,dev]"]
+all = ["notebooklm-py[browser,dev]"]
 
 [project.scripts]
 notebooklm = "notebooklm.notebooklm_cli:main"

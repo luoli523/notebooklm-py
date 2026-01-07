@@ -1,21 +1,21 @@
-# notebooklm-client
+# notebooklm-py
 
 **Unofficial Python client for Google NotebookLM**
 
 Automate Google NotebookLM programmatically. Create notebooks, add sources, chat with your content, and generate podcasts, videos, quizzes, and more - all via CLI or Python API.
 
-[![PyPI version](https://badge.fury.io/py/notebooklm-client.svg)](https://badge.fury.io/py/notebooklm-client)
-[![Python Version](https://img.shields.io/pypi/pyversions/notebooklm-client.svg)](https://pypi.org/project/notebooklm-client/)
+[![PyPI version](https://badge.fury.io/py/notebooklm-py.svg)](https://badge.fury.io/py/notebooklm-py)
+[![Python Version](https://img.shields.io/pypi/pyversions/notebooklm-py.svg)](https://pypi.org/project/notebooklm-py/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Installation
 
 ```bash
 # Basic installation
-pip install notebooklm-client
+pip install notebooklm-py
 
 # With browser login support (required for first-time setup)
-pip install "notebooklm-client[browser]"
+pip install "notebooklm-py[browser]"
 playwright install chromium
 ```
 

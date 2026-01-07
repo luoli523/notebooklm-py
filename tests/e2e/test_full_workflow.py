@@ -157,5 +157,5 @@ class TestArtifactGeneration:
                 notebook.id, instructions="Keep it brief and casual"
             )
 
-            assert status.task_id is not None
-            assert status.status in ("pending", "processing")
+            assert status.task_id, "task_id should not be empty"
+            assert status.status in ("pending", "in_progress")

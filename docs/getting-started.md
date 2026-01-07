@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide walks you through installing and using `notebooklm-client` for the first time.
+This guide walks you through installing and using `notebooklm-py` for the first time.
 
 ## Prerequisites
 
@@ -12,13 +12,13 @@ This guide walks you through installing and using `notebooklm-client` for the fi
 ### Basic Installation (CLI + Python API)
 
 ```bash
-pip install notebooklm-client
+pip install notebooklm-py
 ```
 
 ### With Browser Login Support (Recommended for first-time setup)
 
 ```bash
-pip install "notebooklm-client[browser]"
+pip install "notebooklm-py[browser]"
 playwright install chromium
 ```
 
@@ -27,8 +27,8 @@ The browser extra installs Playwright, which is required for the initial authent
 ### Development Installation
 
 ```bash
-git clone https://github.com/user/notebooklm-client.git
-cd notebooklm-client
+git clone https://github.com/teng-lin/notebooklm-py.git
+cd notebooklm-py
 pip install -e ".[all]"
 playwright install chromium
 ```
