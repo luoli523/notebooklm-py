@@ -2,8 +2,24 @@
 
 This package provides the command-line interface for NotebookLM automation.
 
+Command groups are organized into separate modules:
+- notebook.py: Notebook management commands
+- source.py: Source management commands
+- artifact.py: Artifact management commands
+- generate.py: Content generation commands
+- download.py: Download commands
+- note.py: Note management commands
+
 Re-exports from helpers for backward compatibility with tests.
 """
+
+# Command groups
+from .notebook import notebook
+from .source import source
+from .artifact import artifact
+from .generate import generate
+from .download import download
+from .note import note
 
 from .helpers import (
     # Console
@@ -52,6 +68,13 @@ from .options import (
 )
 
 __all__ = [
+    # Command groups
+    "notebook",
+    "source",
+    "artifact",
+    "generate",
+    "download",
+    "note",
     # Console
     "console",
     # Async

@@ -30,7 +30,12 @@ def runner():
 
 @pytest.fixture
 def mock_auth():
-    with patch("notebooklm.notebooklm_cli.load_auth_from_storage") as mock:
+    """Mock authentication for CLI commands.
+
+    After CLI refactoring, auth is loaded via cli.helpers module.
+    We patch both the main CLI and the helpers module for full coverage.
+    """
+    with patch("notebooklm.cli.helpers.load_auth_from_storage") as mock:
         mock.return_value = {
             "SID": "test",
             "HSID": "test",
@@ -54,9 +59,26 @@ def mock_client():
 
 @pytest.fixture
 def mock_fetch_tokens():
-    with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock:
+    """Mock fetch_tokens for CLI commands.
+
+    After CLI refactoring, fetch_tokens is called via cli.helpers module.
+    """
+    with patch("notebooklm.cli.helpers.fetch_tokens") as mock:
         mock.return_value = ("csrf_token", "session_id")
         yield mock
+
+
+def _create_mock_client():
+    """Helper to create a properly configured mock client."""
+    mock_client = MagicMock()
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=None)
+    return mock_client
+
+
+def _patch_client_for_module(module_path: str):
+    """Create a context manager that patches NotebookLMClient in the given module."""
+    return patch(f"notebooklm.cli.{module_path}.NotebookLMClient")
 
 
 # =============================================================================
@@ -207,10 +229,9 @@ class TestListNotebooks:
         assert result.exit_code == 0
 
     def test_list_notebooks(self, runner, mock_auth):
+        # Top-level 'list' is in notebooklm_cli.py
         with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client = _create_mock_client()
             mock_client.notebooks.list = AsyncMock(
                 return_value=[
                     Notebook(id="nb_001", title="First Notebook", created_at=datetime(2024, 1, 1)),
@@ -219,7 +240,7 @@ class TestListNotebooks:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["list"])
 
@@ -239,16 +260,15 @@ class TestCreateNotebook:
         assert "TITLE" in result.output
 
     def test_create_notebook(self, runner, mock_auth):
+        # Top-level 'create' is in notebooklm_cli.py
         with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client = _create_mock_client()
             mock_client.notebooks.create = AsyncMock(
                 return_value=Notebook(id="nb_new", title="My Research", created_at=datetime(2024, 1, 1))
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["create", "My Research"])
 
@@ -429,14 +449,12 @@ class TestContextCommands:
 
 class TestNotebookCommandsWithMock:
     def test_notebook_delete(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("notebook") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notebooks.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 # notebook delete uses -n option for notebook ID
                 result = runner.invoke(cli, ["notebook", "delete", "-n", "nb_to_delete", "-y"])
@@ -445,14 +463,12 @@ class TestNotebookCommandsWithMock:
             mock_client.notebooks.delete.assert_called_once_with("nb_to_delete")
 
     def test_notebook_rename(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("notebook") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notebooks.rename = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 # notebook rename: NEW_TITLE is positional, notebook ID via -n
                 result = runner.invoke(cli, ["notebook", "rename", "New Title", "-n", "nb_123"])
@@ -463,10 +479,8 @@ class TestNotebookCommandsWithMock:
 
 class TestSourceCommandsWithMock:
     def test_source_list(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("source") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.sources.list = AsyncMock(
                 return_value=[
                     Source(id="src_1", title="Source One"),
@@ -474,7 +488,7 @@ class TestSourceCommandsWithMock:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["source", "list", "-n", "nb_123"])
 
@@ -482,16 +496,14 @@ class TestSourceCommandsWithMock:
             assert "Source One" in result.output or "src_1" in result.output
 
     def test_source_add_url(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("source") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.sources.add_url = AsyncMock(
                 return_value=Source(id="src_new", title="https://example.com", url="https://example.com")
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli, ["source", "add", "https://example.com", "-n", "nb_123"]
@@ -500,16 +512,14 @@ class TestSourceCommandsWithMock:
             assert result.exit_code == 0
 
     def test_source_add_text(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("source") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.sources.add_text = AsyncMock(
                 return_value=Source(id="src_text", title="My Text Source")
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli,
@@ -519,14 +529,12 @@ class TestSourceCommandsWithMock:
             assert result.exit_code == 0
 
     def test_source_delete(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("source") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.sources.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli, ["source", "delete", "src_123", "-n", "nb_123", "-y"]
@@ -538,10 +546,8 @@ class TestSourceCommandsWithMock:
 
 class TestArtifactCommandsWithMock:
     def test_artifact_list(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("artifact") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.list = AsyncMock(
                 return_value=[
                     Artifact(id="art_1", title="Quiz One", artifact_type=4, status=3),  # 3=completed
@@ -551,7 +557,7 @@ class TestArtifactCommandsWithMock:
             mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["artifact", "list", "-n", "nb_123"])
 
@@ -559,10 +565,8 @@ class TestArtifactCommandsWithMock:
             assert "Quiz One" in result.output or "art_1" in result.output
 
     def test_artifact_list_includes_mind_maps(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("artifact") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.list = AsyncMock(return_value=[])
             mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
@@ -571,7 +575,7 @@ class TestArtifactCommandsWithMock:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["artifact", "list", "-n", "nb_123"])
 
@@ -579,10 +583,8 @@ class TestArtifactCommandsWithMock:
             assert "Mind Map" in result.output
 
     def test_artifact_rename_rejects_mind_map(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("artifact") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_123", ["mm_123", "{}", None, None, "Old Title"]],
@@ -590,7 +592,7 @@ class TestArtifactCommandsWithMock:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli, ["artifact", "rename", "mm_123", "New Title", "-n", "nb_123"]
@@ -600,10 +602,8 @@ class TestArtifactCommandsWithMock:
             assert "Mind maps cannot be renamed" in result.output
 
     def test_artifact_delete_mind_map_clears(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("artifact") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_456", ["mm_456", "{}", None, None, "Mind Map Title"]],
@@ -612,7 +612,7 @@ class TestArtifactCommandsWithMock:
             mock_client.notes.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli, ["artifact", "delete", "mm_456", "-n", "nb_123", "-y"]
@@ -625,10 +625,8 @@ class TestArtifactCommandsWithMock:
 
 class TestNoteCommandsWithMock:
     def test_note_list(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("note") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notes.list = AsyncMock(
                 return_value=[
                     ["note_1", ["Note Title", "<p>Content</p>"]],
@@ -637,23 +635,21 @@ class TestNoteCommandsWithMock:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["note", "list", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_note_create(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("note") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notes.create = AsyncMock(
                 return_value=["note_new", ["My Note", "<p>Hello</p>"]]
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli,
@@ -663,14 +659,12 @@ class TestNoteCommandsWithMock:
             assert result.exit_code == 0
 
     def test_note_delete(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("note") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notes.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli, ["note", "delete", "note_123", "-n", "nb_123", "-y"]
@@ -681,16 +675,14 @@ class TestNoteCommandsWithMock:
 
 class TestGenerateCommandsWithMock:
     def test_generate_audio(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_audio = AsyncMock(
                 return_value={"artifact_id": "audio_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "audio", "-n", "nb_123"])
 
@@ -698,112 +690,98 @@ class TestGenerateCommandsWithMock:
             assert "audio_123" in result.output or "Started" in result.output
 
     def test_generate_video(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_video = AsyncMock(
                 return_value={"artifact_id": "video_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "video", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_generate_quiz(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_quiz = AsyncMock(
                 return_value={"artifact_id": "quiz_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "quiz", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_generate_flashcards(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_flashcards = AsyncMock(
                 return_value={"artifact_id": "flash_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "flashcards", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_generate_slide_deck(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_slide_deck = AsyncMock(
                 return_value={"artifact_id": "slides_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "slide-deck", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_generate_infographic(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_infographic = AsyncMock(
                 return_value={"artifact_id": "info_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "infographic", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_generate_mind_map(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_mind_map = AsyncMock(
                 return_value={"mind_map": {"name": "Root", "children": []}, "note_ids": ["n1"]}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "mind-map", "-n", "nb_123"])
 
             assert result.exit_code == 0
 
     def test_generate_report(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("generate") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.generate_report = AsyncMock(
                 return_value={"artifact_id": "report_123", "status": "processing"}
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["generate", "report", "-n", "nb_123"])
 
@@ -812,10 +790,8 @@ class TestGenerateCommandsWithMock:
 
 class TestDownloadCommandsWithMock:
     def test_download_audio(self, runner, mock_auth, tmp_path):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("download") as mock_client_cls:
+            mock_client = _create_mock_client()
             # list_artifacts returns artifacts in format: [id, title, type, created_at, status, ...]
             # type 1 = AUDIO, status 3 = completed
             mock_client.artifacts.list = AsyncMock(
@@ -832,20 +808,20 @@ class TestDownloadCommandsWithMock:
             mock_client.download_audio = mock_download_audio
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "audio", str(output_file), "-n", "nb_123"]
-                )
+            with patch("notebooklm.cli.download.fetch_tokens") as mock_fetch:
+                with patch("notebooklm.cli.download.load_auth_from_storage") as mock_load:
+                    mock_load.return_value = {"SID": "test", "HSID": "test", "SSID": "test"}
+                    mock_fetch.return_value = ("csrf", "session")
+                    result = runner.invoke(
+                        cli, ["download", "audio", str(output_file), "-n", "nb_123"]
+                    )
 
             assert result.exit_code == 0
             assert output_file.exists()
 
     def test_download_video(self, runner, mock_auth, tmp_path):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("download") as mock_client_cls:
+            mock_client = _create_mock_client()
             # type 3 = VIDEO, status 3 = completed
             mock_client.artifacts.list = AsyncMock(
                 return_value=[["vid_1", "My Video", 3, 1234567890, 3]]
@@ -861,11 +837,13 @@ class TestDownloadCommandsWithMock:
             mock_client.download_video = mock_download_video
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "video", str(output_file), "-n", "nb_123"]
-                )
+            with patch("notebooklm.cli.download.fetch_tokens") as mock_fetch:
+                with patch("notebooklm.cli.download.load_auth_from_storage") as mock_load:
+                    mock_load.return_value = {"SID": "test", "HSID": "test", "SSID": "test"}
+                    mock_fetch.return_value = ("csrf", "session")
+                    result = runner.invoke(
+                        cli, ["download", "video", str(output_file), "-n", "nb_123"]
+                    )
 
             assert result.exit_code == 0
             assert output_file.exists()
@@ -875,44 +853,42 @@ class TestDownloadCommandsAdvanced:
     """Tests for download command advanced features."""
 
     def test_download_audio_dry_run(self, runner, mock_auth, tmp_path):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("download") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.list = AsyncMock(
                 return_value=[["audio_123", "My Audio", 1, 1234567890, 3]]
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "audio", "--dry-run", "-n", "nb_123"]
-                )
+            with patch("notebooklm.cli.download.fetch_tokens") as mock_fetch:
+                with patch("notebooklm.cli.download.load_auth_from_storage") as mock_load:
+                    mock_load.return_value = {"SID": "test", "HSID": "test", "SSID": "test"}
+                    mock_fetch.return_value = ("csrf", "session")
+                    result = runner.invoke(
+                        cli, ["download", "audio", "--dry-run", "-n", "nb_123"]
+                    )
 
             assert result.exit_code == 0
             assert "DRY RUN" in result.output
 
     def test_download_audio_no_artifacts(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("download") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.artifacts.list = AsyncMock(return_value=[])
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
+            with patch("notebooklm.cli.download.fetch_tokens") as mock_fetch:
+                with patch("notebooklm.cli.download.load_auth_from_storage") as mock_load:
+                    mock_load.return_value = {"SID": "test", "HSID": "test", "SSID": "test"}
+                    mock_fetch.return_value = ("csrf", "session")
+                    result = runner.invoke(cli, ["download", "audio", "-n", "nb_123"])
 
             # Should report no artifacts found
             assert "No completed audio artifacts found" in result.output or result.exit_code != 0
 
     def test_download_infographic(self, runner, mock_auth, tmp_path):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("download") as mock_client_cls:
+            mock_client = _create_mock_client()
             # type 7 = INFOGRAPHIC, status 3 = completed
             mock_client.artifacts.list = AsyncMock(
                 return_value=[["info_1", "My Infographic", 7, 1234567890, 3]]
@@ -927,20 +903,20 @@ class TestDownloadCommandsAdvanced:
             mock_client.download_infographic = mock_download_infographic
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "infographic", str(output_file), "-n", "nb_123"]
-                )
+            with patch("notebooklm.cli.download.fetch_tokens") as mock_fetch:
+                with patch("notebooklm.cli.download.load_auth_from_storage") as mock_load:
+                    mock_load.return_value = {"SID": "test", "HSID": "test", "SSID": "test"}
+                    mock_fetch.return_value = ("csrf", "session")
+                    result = runner.invoke(
+                        cli, ["download", "infographic", str(output_file), "-n", "nb_123"]
+                    )
 
             assert result.exit_code == 0
             assert output_file.exists()
 
     def test_download_slide_deck(self, runner, mock_auth, tmp_path):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        with _patch_client_for_module("download") as mock_client_cls:
+            mock_client = _create_mock_client()
             # type 8 = SLIDE_DECK, status 3 = completed
             mock_client.artifacts.list = AsyncMock(
                 return_value=[["slide_1", "My Slides", 8, 1234567890, 3]]
@@ -957,27 +933,31 @@ class TestDownloadCommandsAdvanced:
             mock_client.download_slide_deck = mock_download_slide_deck
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(
-                    cli, ["download", "slide-deck", str(output_dir), "-n", "nb_123"]
-                )
+            with patch("notebooklm.cli.download.fetch_tokens") as mock_fetch:
+                with patch("notebooklm.cli.download.load_auth_from_storage") as mock_load:
+                    mock_load.return_value = {"SID": "test", "HSID": "test", "SSID": "test"}
+                    mock_fetch.return_value = ("csrf", "session")
+                    result = runner.invoke(
+                        cli, ["download", "slide-deck", str(output_dir), "-n", "nb_123"]
+                    )
 
             assert result.exit_code == 0
 
 
 class TestNotebookListWithMock:
-    """Tests for notebook list command."""
+    """Tests for notebook list command.
+
+    Note: The 'list' shortcut is in notebooklm_cli.py, so we patch there.
+    """
 
     def test_notebook_list_empty(self, runner, mock_auth):
+        # Top-level 'list' is in notebooklm_cli.py
         with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client = _create_mock_client()
             mock_client.notebooks.list = AsyncMock(return_value=[])
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["list"])
 
@@ -987,9 +967,7 @@ class TestNotebookListWithMock:
 
     def test_notebook_list_with_notebooks(self, runner, mock_auth):
         with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+            mock_client = _create_mock_client()
             mock_client.notebooks.list = AsyncMock(
                 return_value=[
                     Notebook(id="nb_1", title="First Notebook", created_at=datetime(2024, 1, 1)),
@@ -998,7 +976,7 @@ class TestNotebookListWithMock:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["list"])
 
@@ -1007,16 +985,15 @@ class TestNotebookListWithMock:
             assert "Second Notebook" in result.output
 
     def test_notebook_create(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        # 'notebook create' uses cli/notebook.py
+        with _patch_client_for_module("notebook") as mock_client_cls:
+            mock_client = _create_mock_client()
             mock_client.notebooks.create = AsyncMock(
                 return_value=Notebook(id="new_nb_id", title="Test Notebook", created_at=datetime(2024, 1, 1))
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["notebook", "create", "Test Notebook"])
 
@@ -1027,10 +1004,9 @@ class TestQueryCommand:
     """Tests for query/ask commands."""
 
     def test_notebook_ask(self, runner, mock_auth):
-        with patch("notebooklm.notebooklm_cli.NotebookLMClient") as mock_client_cls:
-            mock_client = MagicMock()
-            mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-            mock_client.__aexit__ = AsyncMock(return_value=None)
+        # 'notebook ask' uses cli/notebook.py
+        with _patch_client_for_module("notebook") as mock_client_cls:
+            mock_client = _create_mock_client()
 
             # Mock ask method which returns a dict
             mock_client.chat.ask = AsyncMock(
@@ -1042,7 +1018,7 @@ class TestQueryCommand:
             )
             mock_client_cls.return_value = mock_client
 
-            with patch("notebooklm.notebooklm_cli.fetch_tokens") as mock_fetch:
+            with patch("notebooklm.cli.helpers.fetch_tokens") as mock_fetch:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(
                     cli, ["notebook", "ask", "-n", "nb_123", "What is this?"]
