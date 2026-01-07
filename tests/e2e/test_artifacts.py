@@ -248,10 +248,17 @@ class TestMindMapGeneration:
 class TestStudyGuideGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.xfail(reason="Study guide API returns null - investigating")
-    async def test_generate_study_guide(self, client, test_notebook_id):
+    async def test_generate_study_guide(
+        self, client, test_notebook_id, created_artifacts, cleanup_artifacts
+    ):
+        """Test study guide generation.
+
+        Note: Uses test_notebook_id which should be a writable notebook
+        (not the read-only golden notebook). Set NOTEBOOKLM_TEST_NOTEBOOK_ID
+        environment variable to a writable notebook ID for this test.
+        """
         result = await client.artifacts.generate_study_guide(test_notebook_id)
-        assert result is not None or result is None
+        assert result is not None
 
 
 @requires_auth

@@ -372,6 +372,7 @@ class ArtifactsAPI:
             RPCMethod.CREATE_VIDEO,
             params,
             source_path=f"/notebook/{notebook_id}",
+            allow_null=True,
         )
 
         return self._parse_generation_result(result)
