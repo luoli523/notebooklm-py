@@ -70,9 +70,11 @@ class RPCMethod(Enum):
 
 | Type | Format | Example |
 |------|--------|---------|
-| Design docs | `<feature-name>.md` | `authentication.md` |
-| Reference docs | `PascalCase.md` | `RpcProtocol.md`, `API.md` |
-| Scratch files | `YYYY-MM-DD-<context>.md` | `2026-01-06-debug-auth.md` |
+| Root GitHub files | `UPPERCASE.md` | `README.md`, `CONTRIBUTING.md` |
+| Agent files | `UPPERCASE.md` | `CLAUDE.md`, `AGENTS.md` |
+| All docs/ files | `lowercase-kebab.md` | `getting-started.md`, `cli-reference.md` |
+| Design docs | `lowercase-kebab.md` | `documentation-refresh.md` |
+| Scratch files | `YYYY-MM-DD-context.md` | `2026-01-06-debug-auth.md` |
 
 ### Status Headers
 

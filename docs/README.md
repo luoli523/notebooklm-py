@@ -9,14 +9,15 @@ This folder contains all project documentation. AI agents must follow the rules 
 
 | Folder | Purpose | File Format |
 |--------|---------|-------------|
-| `reference/` | Long-lived technical docs | `PascalCase.md` |
-| `reference/internals/` | Reverse engineering notes | Any |
-| `designs/` | Approved design decisions | `<feature-name>.md` |
-| `scratch/` | Temporary agent work | `YYYY-MM-DD-<context>.md` |
+| `contributing/` | Contributor guides | `lowercase-kebab.md` |
+| `examples/` | Runnable example scripts | `lowercase-kebab.py` |
+| `reference/internals/` | Reverse engineering notes | `lowercase-kebab.md` |
+| `designs/` | Approved design decisions | `lowercase-kebab.md` |
+| `scratch/` | Temporary agent work | `YYYY-MM-DD-context.md` |
 
 ## Rules for This Folder
 
-1. **Do not create files in `docs/` root** - Use the appropriate subfolder.
+1. **Root files are defined** - Only the files listed in "Top-Level Files" belong at `docs/` root. All other docs go in subfolders.
 
 2. **Reference docs are stable** - Only update `reference/` files when fixing errors or adding significant new information.
 
@@ -26,6 +27,8 @@ This folder contains all project documentation. AI agents must follow the rules 
 
 ## Top-Level Files
 
-- `API.md` - User-facing API documentation
-- `EXAMPLES.md` - Usage examples for the library
-- `FILE_UPLOAD_IMPLEMENTATION.md` - Implementation notes (consider moving to reference/)
+- `getting-started.md` - Installation and first workflow
+- `cli-reference.md` - Complete CLI command reference
+- `python-api.md` - Python API reference with examples
+- `configuration.md` - Storage, environment variables, settings
+- `troubleshooting.md` - Common errors and known issues
