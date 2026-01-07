@@ -113,10 +113,7 @@ from notebooklm.services import SourceService
 
 service = SourceService(client)
 
-# Add PDF (converts to text locally first)
-source = await service.add_pdf(nb_id, Path("doc.pdf"))
-
-# Add file (native upload - no conversion)
+# Add file (native upload)
 source = await service.add_file(nb_id, "document.pdf")
 
 # Add URL

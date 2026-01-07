@@ -10,19 +10,18 @@ A comprehensive Python library and CLI for automating Google NotebookLM. Program
 
 ## Key Features
 
-- **Notebook Management**: Create, list, rename, and delete notebooks.
+- **Notebook Management**: Create, list, rename, delete, and configure notebooks.
 - **Source Integration**:
-  - Web URLs (with automatic YouTube transcript extraction).
-  - Raw text content.
-  - PDF documents (via Docling or PyMuPDF backends).
-  - Native file uploads (PDF, TXT, MD, DOCX) without local text extraction.
-- **AI-Powered Querying**: Full-featured chat interface with streaming support and conversation history.
+  - Web URLs and YouTube videos (with automatic transcript extraction).
+  - Native file uploads (PDF, TXT, MD, DOCX) and Google Drive documents.
+  - Raw text content and AI-discovered research findings.
+- **AI-Powered Querying**: Full-featured chat with streaming support, conversation history, and customizable personas.
 - **Studio Artifacts**:
-  - **Audio Overviews**: Generate two-person podcasts with custom instructions, formats (Deep Dive, Brief, Critique, Debate), and lengths.
-  - **Video Overviews**: Create explainer videos with multiple visual styles (Classic, Anime, Whiteboard, etc.).
-  - **Educational Tools**: Generate Quizzes, Flashcards, and Study Guides.
-  - **Visuals & Data**: Create Infographics, Slide Decks, and Data Tables.
-- **Agentic Research**: Trigger Fast or Deep research agents to gather information from the web or Google Drive and import findings directly.
+  - **Audio & Video**: Generate podcasts (Audio Overviews) and explainer videos with multiple styles.
+  - **Educational Tools**: Create Quizzes, Flashcards, and comprehensive Study Guides.
+  - **Visuals & Data**: Generate Slide Decks, Infographics, Data Tables, and Mind Maps.
+- **Agentic Research**: Trigger Fast or Deep research agents to gather information from the web or Google Drive.
+- **Local Sync & Export**: Download generated media or export artifacts directly to Google Docs and Sheets.
 
 ## Installation
 
@@ -37,19 +36,7 @@ pip install "notebooklm-client[browser]"
 playwright install chromium
 ```
 
-### With PDF Processing Support
-```bash
-# Docling backend (Recommended for better structure)
-pip install "notebooklm-client[pdf-docling]"
-
-# PyMuPDF backend (Faster, lightweight)
-pip install "notebooklm-client[pdf-pymupdf]"
-
-# Full PDF support
-pip install "notebooklm-client[pdf]"
-```
-
-### Full Installation
+### Full Development Setup
 ```bash
 pip install "notebooklm-client[all]"
 playwright install chromium
@@ -59,144 +46,175 @@ playwright install chromium
 
 NotebookLM uses Google's internal `batchexecute` RPC protocol, which requires valid session cookies and CSRF tokens.
 
-### Option 1: CLI Login (Recommended)
+### CLI Login (Recommended)
 The easiest way to authenticate is using the built-in login command:
 ```bash
 notebooklm login
 ```
-This will:
-1. Open a real Chromium window using a **persistent browser profile** (located at `~/.notebooklm/browser_profile/`).
-2. Allow you to log in to your Google account manually.
-3. Save the session state to `~/.notebooklm/storage_state.json`.
-
-**Why a persistent profile?** Google often blocks automated login attempts. Using a persistent profile makes the browser appear as a regular user installation, significantly reducing bot detection.
-
-### Option 2: Custom Storage Path
-If you need to manage multiple accounts or specific paths:
-```bash
-notebooklm login --storage /path/to/auth.json
-notebooklm --storage /path/to/auth.json list
-```
+This will open a Chromium window using a **persistent browser profile** (at `~/.notebooklm/browser_profile/`). Log in to your Google account manually, wait for the NotebookLM homepage to load, and press ENTER in the terminal to save the session state to `~/.notebooklm/storage_state.json`.
 
 ## Quick Start
 
 ### CLI Usage
 ```bash
-# Create a notebook
+# 1. Login (opens browser for Google authentication)
+notebooklm login
+
+# 2. Create a notebook and set it as current context
 notebooklm create "AI Research"
+notebooklm use <notebook_id>  # Use ID from output above
 
-# Add a source
-notebooklm add-url <notebook_id> "https://en.wikipedia.org/wiki/Artificial_intelligence"
+# 3. Add sources (auto-detects URL/YouTube/file)
+notebooklm source add "https://en.wikipedia.org/wiki/Artificial_intelligence"
+notebooklm source add "./my-paper.pdf"
 
-# Ask a question
-notebooklm query <notebook_id> "Summarize the history of AI"
+# 4. Chat with your sources
+notebooklm ask "What are the key themes?"
 
-# Generate a podcast
-notebooklm audio <notebook_id> --instructions "Make it humorous and casual"
+# 5. Generate a podcast (--wait blocks until complete)
+notebooklm generate audio "Focus on the history of AI" --wait
+
+# 6. Download the generated audio
+notebooklm download audio ./my-podcast.mp3
 ```
 
 ### Python API
 ```python
 import asyncio
 from notebooklm import NotebookLMClient
+from notebooklm.services import NotebookService, ArtifactService
 
 async def main():
     # Automatically loads auth from default storage path
     async with await NotebookLMClient.from_storage() as client:
-        # 1. Create notebook
-        nb = await client.create_notebook("My Project")
-        nb_id = nb[0]
+        # High-level service layer
+        nb_svc = NotebookService(client)
+        art_svc = ArtifactService(client)
+        
+        # 1. Create/Get notebook
+        nb = await nb_svc.create("AI Research")
         
         # 2. Add sources
-        await client.add_source_url(nb_id, "https://example.com/data")
+        await client.add_source_url(nb.id, "https://example.com/ai-basics")
         
-        # 3. Query
-        response = await client.query(nb_id, "What are the key findings?")
+        # 3. Chat
+        response = await client.query(nb.id, "What are the core concepts?")
         print(f"AI: {response['answer']}")
         
-        # 4. Generate Audio Overview
-        status = await client.generate_audio(nb_id)
-        print(f"Generation Task ID: {status[0]}")
+        # 4. Generate and wait for a podcast
+        status = await art_svc.generate_audio(nb.id, instructions="Make it professional")
+        result = await art_svc.wait_for_completion(nb.id, status.task_id)
+        print(f"Audio URL: {result.url}")
 
 asyncio.run(main())
 ```
 
 ## CLI Reference
 
-| Command | Arguments | Description |
-|---------|-----------|-------------|
-| `login` | `[--storage PATH]` | Authenticate via browser |
-| `list` | - | List all notebooks |
-| `create` | `TITLE` | Create a new notebook |
-| `delete` | `NB_ID` | Delete a notebook |
-| `rename` | `NB_ID TITLE` | Rename a notebook |
-| `add-url` | `NB_ID URL` | Add URL source (supports YouTube) |
-| `add-text` | `NB_ID TITLE TEXT`| Add raw text source |
-| `add-file` | `NB_ID PATH [--mime-type]` | Add file source (native upload) |
-| `add-pdf` | `NB_ID PATH` | Add PDF source (with text extraction) |
-| `query` | `NB_ID TEXT` | Chat with the notebook |
-| `audio` | `NB_ID` | Generate podcast overview |
-| `slides` | `NB_ID` | Generate slide deck |
-| `research`| `NB_ID QUERY` | Start AI research agent |
+### Context & Auth
+| Command | Description |
+|---------|-------------|
+| `login` | Authenticate via browser |
+| `use <notebook_id>` | Set the current notebook context for subsequent commands |
+| `status`| Show current notebook and conversation context |
+| `clear` | Clear the current context |
+| `list` | List notebooks (shortcut for `notebook list`) |
+| `create <title>` | Create notebook (shortcut for `notebook create`) |
+| `ask <question>` | Chat with current notebook (shortcut) |
 
-## Advanced API Usage
+### Notebooks (`notebooklm notebook ...`)
+| Command | Description |
+|---------|-------------|
+| `list` | List all accessible notebooks |
+| `create <title>` | Create a new notebook |
+| `delete <id>` | Delete a notebook |
+| `rename <new_title>` | Rename a notebook |
+| `share` | Get sharing info for a notebook |
+| `summary` | Get AI-generated summary and suggested topics |
+| `analytics` | Get usage analytics for the notebook |
+| `history` | View or clear conversation history |
+| `ask <question>` | Chat with the notebook |
+| `configure` | Set chat persona, response length, and mode |
+| `research <query>` | Start a research agent session (Fast/Deep) |
+| `featured` | List public/featured notebooks from Google |
 
-### High-Level Services
-For a cleaner, object-oriented approach, use the service classes:
+### Sources (`notebooklm source ...`)
+| Command | Description |
+|---------|-------------|
+| `list` | List all sources in a notebook |
+| `add <content>` | Add URL, YouTube, local file, or text (auto-detected) |
+| `add-drive <file_id> <title>` | Add Google Drive documents |
+| `get <source_id>` | Get details of a specific source |
+| `rename <source_id> <title>` | Rename a source |
+| `refresh <source_id>` | Re-sync content for URL or Drive sources |
+| `delete <source_id>` | Remove a source |
 
-```python
-from notebooklm.services import NotebookService, SourceService, ArtifactService
+### Generation (`notebooklm generate ...`)
+| Command | Description |
+|---------|-------------|
+| `audio [description]` | Generate podcast with optional instructions |
+| `video [description]` | Generate explainer video |
+| `slide-deck [description]` | Generate presentation slides |
+| `quiz [description]` | Generate interactive quiz |
+| `flashcards [description]` | Generate study flashcards |
+| `infographic [description]` | Generate visual infographic |
+| `data-table [description]` | Generate structured data table |
+| `mind-map` | Generate interactive mind map |
+| `report [description]` | Generate briefing doc, study guide, or blog post |
 
-# notebook_svc.list() returns List[Notebook] objects
-notebook_svc = NotebookService(client)
-notebooks = await notebook_svc.list()
+### Artifacts (`notebooklm artifact ...`)
+| Command | Description |
+|---------|-------------|
+| `list` | List all artifacts in a notebook |
+| `get <artifact_id>` | Get artifact details |
+| `rename <artifact_id> <title>` | Rename an artifact |
+| `delete <artifact_id>` | Delete an artifact |
+| `export <artifact_id>` | Export to Google Docs/Sheets |
+| `suggestions` | Get AI-suggested report topics |
+| `poll <task_id>` | Check generation status |
 
-# artifact_svc handles polling and status
-artifact_svc = ArtifactService(client)
-status = await artifact_svc.generate_audio(nb_id, host_instructions="Focus on safety")
-result = await artifact_svc.wait_for_completion(nb_id, status.task_id)
-print(f"Audio URL: {result.url}")
+### Downloads (`notebooklm download ...`)
+| Command | Description |
+|---------|-------------|
+| `audio [output_path]` | Download audio overview(s) |
+| `video [output_path]` | Download video overview(s) |
+| `slide-deck [output_path]` | Download slide deck(s) |
+| `infographic [output_path]` | Download infographic(s) |
+
+### Notes (`notebooklm note ...`)
+| Command | Description |
+|---------|-------------|
+| `list` | List all notes in a notebook |
+| `create <content>` | Create a new note |
+| `get <note_id>` | Get note content |
+| `save <note_id>` | Update note content |
+| `rename <note_id> <title>` | Rename a note |
+| `delete <note_id>` | Delete a note |
+
+## Advanced Usage
+
+### Chat Configuration
+Customize how the AI responds by setting a persona or using predefined modes:
+```bash
+# Use a predefined mode
+notebooklm notebook configure --mode learning-guide
+
+# Set a custom persona
+notebooklm notebook configure --persona "Act as a critical tech journalist" --response-length longer
 ```
 
-### Customizing Generation
-
-```python
-from notebooklm.rpc import VideoStyle, VideoFormat, AudioFormat
-
-# Generate a video with specific style
-await client.generate_video(
-    nb_id,
-    video_style=VideoStyle.ANIME,
-    video_format=VideoFormat.EXPLAINER,
-    instructions="Focus on visual metaphors"
-)
-
-# Generate a 'Debate' style podcast
-await client.generate_audio(
-    nb_id,
-    audio_format=AudioFormat.DEBATE
-)
+### Research Agent
+Trigger an agent to find information from the web or your Drive:
+```bash
+notebooklm notebook research "Latest breakthroughs in fusion energy" --mode deep --import-all
 ```
 
-## Troubleshooting
-
-### "Auth not found" or "Unauthorized"
-- Run `notebooklm login` again to refresh your session.
-- Ensure the `storage_state.json` file exists at `~/.notebooklm/storage_state.json`.
-
-### Google Login Blocked
-- If you see a "This browser or app may not be secure" message, ensure you are using the `notebooklm login` command which uses a persistent profile.
-- Try logging into Google in a regular Chrome browser first, then run `notebooklm login`.
-
-### PDF Extraction Errors
-- If `add-pdf` fails, ensure you installed the required extras: `pip install "notebooklm[pdf]"`.
-- For `docling`, some systems may require additional libraries (libGL, etc.). Try the `pymupdf` backend if `docling` fails.
-
-## Known Issues
-
-- **RPC Stability**: Since this uses reverse-engineered private APIs, Google may change internal IDs (`wXbhsf`, etc.) at any time, which would break the library.
-- **Audio Instructions**: The exact parameter position for audio instructions is still being verified for some edge cases.
-- **Rate Limiting**: Heavy usage may trigger Google's rate limiting or temporary bans. Use responsibly.
+## Documentation
+- [Usage Examples](docs/EXAMPLES.md) - Runnable Python scripts for common tasks.
+- [API Reference](docs/API.md) - Detailed Python API documentation.
+- [RPC Reference](docs/reference/RpcProtocol.md) - Deep dive into the reverse-engineered protocol.
+- [Known Issues](docs/reference/KnownIssues.md) - Limitations and workarounds.
+- [Contributing](CONTRIBUTING.md) - Guidelines for contributors and AI agents.
 
 ## License
 
@@ -204,3 +222,4 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 *Disclaimer: This is an unofficial library and is not affiliated with or endorsed by Google.*
+

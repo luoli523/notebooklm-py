@@ -2,56 +2,17 @@
 
 Guidelines for AI agents working on `notebooklm-client`.
 
+**IMPORTANT:** Follow documentation rules in [CONTRIBUTING.md](CONTRIBUTING.md) - especially the file creation and naming conventions.
+
 ## Quick Reference
 
+See [CLAUDE.md](CLAUDE.md) for full project context. Essential commands:
+
 ```bash
-# Activate virtual environment FIRST
-source .venv/bin/activate
-
-# Run all tests (excludes e2e by default)
-pytest
-
-# Run a single test file
-pytest tests/unit/test_decoder.py
-
-# Run a single test function
-pytest tests/unit/test_decoder.py::TestDecodeResponse::test_full_decode_pipeline
-
-# Run a single test class
-pytest tests/unit/test_decoder.py::TestDecodeResponse
-
-# Run with verbose output
-pytest -v tests/unit/test_decoder.py
-
-# Run with coverage
-pytest --cov
-
-# Run e2e tests (requires auth)
-pytest tests/e2e -m e2e
-
-# Run slow tests (audio/video generation)
-pytest -m slow
-
-# Install in dev mode
-pip install -e ".[all]"
-playwright install chromium
+source .venv/bin/activate    # Always activate venv first
+pytest                       # Run tests
+pip install -e ".[all]"      # Install in dev mode
 ```
-
-## Architecture Overview
-
-Three-layer design:
-
-```
-Services Layer (src/notebooklm/services/)
-  └─> Client Layer (src/notebooklm/api_client.py)
-        └─> RPC Layer (src/notebooklm/rpc/)
-```
-
-- **Services**: High-level wrappers with typed dataclasses (Notebook, Source)
-- **Client**: `NotebookLMClient` async class, `_rpc_call()` for batchexecute
-- **RPC**: `types.py` (method IDs), `encoder.py`, `decoder.py`
-
-**Critical**: RPC method IDs in `types.py` are reverse-engineered. Google can change them.
 
 ## Code Style Guidelines
 
@@ -83,7 +44,7 @@ class Notebook:
     id: str
     title: str
     created_at: Optional[datetime] = None
-    
+
     @classmethod
     def from_api_response(cls, data: list[Any]) -> "Notebook": ...
 ```
@@ -145,34 +106,6 @@ async def test_list_notebooks(self, client):
     assert isinstance(notebooks, list)
 ```
 
-## Adding New RPC Methods
-
-1. Capture network traffic in DevTools (filter `batchexecute`)
-2. Find method ID from `rpcids` parameter
-3. Add to `types.py`: `NEW_METHOD = "XyZ123"`
-4. Implement in `api_client.py`:
-   ```python
-   async def new_method(self, notebook_id: str) -> Any:
-       params = [notebook_id, ...]  # Match captured structure
-       return await self._rpc_call(RPCMethod.NEW_METHOD, params, allow_null=True)
-   ```
-5. Add tests in `tests/unit/` and optionally `tests/e2e/`
-
-## Common Pitfalls
-
-| Issue | Solution |
-|-------|----------|
-| `RuntimeError: Client not initialized` | Use `async with` context manager |
-| `RPCError: No result found` | Check if `allow_null=True` needed, or API changed |
-| `ValueError: Missing required cookies` | Run `notebooklm login` |
-| Nested list parsing fails | RPC params are position-sensitive |
-| Tests fail with auth errors | E2E tests need real auth; unit tests should mock |
-
-## Key Constants
-
-- **Default storage**: `~/.notebooklm/storage_state.json`
-- **Batchexecute URL**: `https://notebooklm.google.com/_/LabsTailwindUi/data/batchexecute`
-
 ## Do NOT
 
 - Suppress type errors with `# type: ignore`
@@ -180,3 +113,4 @@ async def test_list_notebooks(self, client):
 - Add dependencies without updating `pyproject.toml`
 - Change RPC method IDs without verifying via network capture
 - Delete or modify e2e tests without running them
+- Create documentation files without following CONTRIBUTING.md rules

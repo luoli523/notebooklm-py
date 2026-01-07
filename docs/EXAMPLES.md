@@ -69,7 +69,7 @@ async def bulk_pdf(folder_path, notebook_id):
         
         for pdf in pdf_files:
             print(f"Uploading {pdf.name}...")
-            await source_svc.add_pdf(notebook_id, pdf, backend="docling")
+            await source_svc.add_file(notebook_id, pdf)
             
         print("Done!")
 

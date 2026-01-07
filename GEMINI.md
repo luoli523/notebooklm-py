@@ -1,83 +1,34 @@
 # GEMINI.md
 
-## Project Overview
+**IMPORTANT:** Follow documentation rules in [CONTRIBUTING.md](CONTRIBUTING.md) - especially the file creation and naming conventions.
 
-`notebooklm-client` is an unofficial Python client and CLI for Google NotebookLM. It allows programmatic management of notebooks, sources, and AI-generated artifacts (podcasts, videos, quizzes) by reverse-engineering Google's internal `batchexecute` RPC protocol.
+Guidelines for Gemini when working on `notebooklm-client`.
 
-**Core Functionality:**
-- **Notebook Management:** CRUD operations for notebooks.
-- **Source Integration:** Add URLs (including YouTube), raw text, and file uploads.
-- **AI Querying:** Chat interface with streaming responses.
-- **Studio Artifacts:** Generation of audio/video overviews, study guides, and more.
+## Quick Reference
 
-**Critical Note:** This project relies on obfuscated RPC method IDs (e.g., `CCqFvf`) which Google may change at any time. These are defined in `src/notebooklm/rpc/types.py`.
+See [CLAUDE.md](CLAUDE.md) for full project context including:
+- Architecture overview (three-layer design)
+- Key files and their purposes
+- Testing strategy and E2E test status
+- Common pitfalls
 
-## Architecture
-
-The project follows a three-layer architecture:
-
-1.  **RPC Layer (`src/notebooklm/rpc/`)**
-    -   Handles the low-level `batchexecute` protocol.
-    -   `types.py`: **CRITICAL**. Defines all RPC method IDs and parameter enums.
-    -   `encoder.py` / `decoder.py`: Serializes and parses the nested list structures used by the API.
-
-2.  **Client Layer (`src/notebooklm/api_client.py`)**
-    -   `NotebookLMClient`: The main async API client.
-    -   Manages authentication (cookies/headers), request IDs, and session state.
-    -   Executes RPC calls via `_rpc_call`.
-
-3.  **Service Layer (`src/notebooklm/services/`)**
-    -   Provides high-level, object-oriented abstractions (`NotebookService`, `SourceService`, etc.).
-    -   Wraps raw RPC responses into typed Python objects.
-
-## Key Files
-
--   `src/notebooklm/api_client.py`: Core client implementation.
--   `src/notebooklm/rpc/types.py`: The "source of truth" for API method IDs. If the API breaks, check this file first against network traffic.
--   `src/notebooklm/auth.py`: specific authentication logic using Playwright to handle Google's login flow and persist cookies.
--   `src/notebooklm/notebooklm_cli.py`: Entry point for the CLI application.
-
-## Building and Running
-
-### Installation
-This project uses `hatchling` as the build backend.
+## Essential Commands
 
 ```bash
-# Install in editable mode with all dependencies (including dev and browser support)
-pip install -e ".[all]"
+# Activate virtual environment FIRST
+source .venv/bin/activate
 
-# Install playwright browsers (required for login)
+# Run tests
+pytest                           # All tests (excludes e2e)
+pytest tests/e2e -m e2e          # E2E tests (requires auth)
+
+# Install in dev mode
+pip install -e ".[all]"
 playwright install chromium
 ```
 
-### CLI Usage
-The CLI entry point is `notebooklm`.
+## Critical Notes
 
-```bash
-notebooklm --help
-notebooklm login       # Authenticate via browser
-notebooklm list        # List notebooks
-```
-
-### Testing
-Tests are managed with `pytest`.
-
-```bash
-# Run unit and integration tests (fast)
-pytest
-
-# Run end-to-end tests (requires valid auth state)
-pytest tests/e2e -m e2e
-
-# Run slow tests (e.g., audio/video generation)
-pytest -m slow
-```
-
-## Development Conventions
-
--   **Authentication:** The project uses a persistent browser profile (`~/.notebooklm/browser_profile/`) to avoid bot detection during login.
--   **RPC Method Discovery:** New features often require capturing network traffic to identify new method IDs, which are then added to `types.py`.
--   **Code Style:** Follows standard Python conventions.
--   **Testing:** 
-    -   Unit tests mock the RPC layer.
-    -   E2E tests hit the real Google API and are prone to rate limiting or flake.
+1. **RPC method IDs** in `src/notebooklm/rpc/types.py` are reverse-engineered and can change
+2. **Always use async context managers** for the client
+3. **Check CONTRIBUTING.md** before creating any documentation files

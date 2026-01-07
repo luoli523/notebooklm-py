@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**IMPORTANT:** Follow documentation rules in [CONTRIBUTING.md](CONTRIBUTING.md) - especially the file creation and naming conventions.
+
 ## Project Overview
 
 `notebooklm-client` is an unofficial Python client for Google NotebookLM that uses reverse-engineered RPC APIs. The library enables programmatic automation of NotebookLM features including notebook management, source integration, AI querying, and studio artifact generation (podcasts, videos, quizzes, etc.).
@@ -120,7 +122,7 @@ f.req=[[[method_id, params_json, null, "generic"]]]&at=CSRF_TOKEN
 **Known Issue:** 27 tests fail with `RPCError: No result found for RPC ID: R7cb6c` when generating artifacts (audio, video, quiz, slides, infographics). This is:
 - **Not a bug in the code** - Same issue exists in the original project
 - **Likely rate limiting or API restrictions** from Google
-- **Documented limitation** - See `E2E_TEST_ANALYSIS.md` for full details
+- **Documented limitation** - See `docs/scratch/2026-01-05-e2e-test-analysis.md` for full details
 
 **What works in E2E:**
 - ✅ All notebook operations (list, create, rename, delete, query)
