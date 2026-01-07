@@ -255,6 +255,107 @@ async def test_bulk_operations():
 4. **Mark flaky tests**: Use `xfail` for known unreliable tests
 5. **Don't test destructive operations**: Avoid testing delete on real data
 
+## E2E Fixture Strategy: Golden vs Temporary Notebooks
+
+E2E tests use different notebook types depending on what they need to test. Understanding when to use each is critical for writing effective tests.
+
+### The Problem
+
+NotebookLM has several constraints that make naive E2E testing problematic:
+
+1. **Artifact generation is slow** - Audio takes 2-5 minutes, video even longer
+2. **Rate limiting is aggressive** - Too many operations trigger throttling
+3. **Source processing takes time** - URLs/files need time to be indexed
+4. **Cleanup failures leave debris** - Failed tests can leave notebooks behind
+
+### The Solution: Tiered Fixtures
+
+We use different fixture types for different test needs:
+
+| Fixture | Scope | Use Case | Creates Resources? |
+|---------|-------|----------|-------------------|
+| `golden_notebook_id` | session | Read-only tests, download tests | No - uses existing |
+| `temp_notebook` | function | Mutation tests (CRUD) | Yes - auto-cleanup |
+| `test_workspace` | session | Shared state tests | Yes - session cleanup |
+| `generation_notebook` | session | Slow generation tests | Yes - session cleanup |
+
+### Golden Notebook (`golden_notebook_id`)
+
+**What it is:** Google's shared demo notebook (`19bde485-a9c1-4809-8884-e872b2b67b44`) that comes pre-seeded with sources and artifacts.
+
+**Rationale:**
+- **Pre-existing artifacts**: Has audio, video, quiz, flashcards, slide decks, mind maps already generated
+- **No generation wait**: Tests can immediately verify download/export without waiting for generation
+- **Always available**: Doesn't depend on test setup succeeding
+- **Rate limit friendly**: No API calls needed to set up content
+
+**Use for:**
+- Download tests (`test_download_audio`, `test_download_video`)
+- Read-only list operations (`test_list_sources`, `test_list_artifacts`)
+- Source guide/summary retrieval
+- Any test marked `@pytest.mark.golden`
+
+```python
+@pytest.mark.golden
+async def test_download_audio(self, client, test_notebook_id):
+    """Downloads existing audio artifact - read-only."""
+    # test_notebook_id defaults to golden notebook
+    result = await client.artifacts.download_audio(test_notebook_id, output_path)
+```
+
+### Temporary Notebook (`temp_notebook`)
+
+**What it is:** A fresh notebook created for a single test, automatically deleted after.
+
+**Rationale:**
+- **Isolation**: Each test gets clean state, no interference
+- **Safe mutations**: Can create/delete sources, notes, artifacts freely
+- **Automatic cleanup**: Fixture handles deletion even if test fails
+
+**Use for:**
+- Source CRUD tests (add, rename, delete)
+- Note CRUD tests
+- Tests that modify notebook state
+- Tests that need predictable initial state
+
+```python
+async def test_add_and_delete_source(self, client, temp_notebook):
+    """Test source lifecycle - needs owned notebook."""
+    source = await client.sources.add_url(temp_notebook.id, "https://example.com")
+    await client.sources.delete(temp_notebook.id, source.id)
+```
+
+### Why Not Just Create Fresh Notebooks for Everything?
+
+1. **Generation tests would be too slow**: Creating audio from scratch takes 2-5 minutes. Using golden notebook's pre-existing artifacts makes download tests run in seconds.
+
+2. **Rate limiting would fail tests**: Creating notebooks, adding sources, and generating artifacts in every test would hit rate limits quickly.
+
+3. **Flakiness increases**: More setup = more failure points. Golden notebook eliminates setup failures for read-only tests.
+
+### Test Markers
+
+Use markers to indicate fixture requirements:
+
+```python
+@pytest.mark.golden   # Uses golden notebook, read-only
+@pytest.mark.stable   # Reliable, should always pass
+@pytest.mark.slow     # Takes > 30 seconds (generation)
+@pytest.mark.flaky    # Known to fail intermittently
+```
+
+### Environment Variables
+
+Override defaults for custom test setups:
+
+```bash
+# Use your own notebook instead of golden
+export NOTEBOOKLM_GOLDEN_NOTEBOOK_ID="your-notebook-id"
+
+# Use specific notebook for test_notebook_id fixture
+export NOTEBOOKLM_TEST_NOTEBOOK_ID="your-test-notebook-id"
+```
+
 ## Fixtures Reference
 
 ### `conftest.py` Fixtures
