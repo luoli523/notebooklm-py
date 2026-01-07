@@ -58,13 +58,20 @@ class RPCMethod(Enum):
 
 **Rule:** Never modify content between `PROTECTED` and `END PROTECTED` markers unless explicitly instructed by the user.
 
-### Plan/Design Lifecycle
+### Design Decision Lifecycle
 
-1. **Design docs** (`docs/designs/`) - Document the "why" behind major decisions; kept permanently. Format: `<feature-name>.md` (no date prefix).
+Design decisions should be captured where they're most useful, not in separate documents that become stale.
 
-2. **Implementation plans** - Tactical step-by-step plans; delete after task completion.
+| When | Where | What to Include |
+|------|-------|-----------------|
+| **Feature work** | PR description | Design rationale, edge cases, alternatives considered |
+| **Specific decisions** | Commit message | Why this approach was chosen |
+| **Large discussions** | GitHub Issue | Link from PR, spans multiple changes |
+| **Investigation/debugging** | `docs/scratch/` | Temporary work, delete when done |
 
-3. **Scratch files** (`docs/scratch/`) - Temporary work; periodically cleaned up. Format: `YYYY-MM-DD-<context>.md`
+**Why not design docs?** Separate design documents accumulate and become stale. PR descriptions stay attached to the code changes, are searchable in GitHub, and don't clutter the repository.
+
+**Scratch files** (`docs/scratch/`) - Temporary investigation logs and intermediate work. Format: `YYYY-MM-DD-<context>.md`. Periodically cleaned up.
 
 ### Naming Conventions
 
@@ -73,7 +80,6 @@ class RPCMethod(Enum):
 | Root GitHub files | `UPPERCASE.md` | `README.md`, `CONTRIBUTING.md` |
 | Agent files | `UPPERCASE.md` | `CLAUDE.md`, `AGENTS.md` |
 | All docs/ files | `lowercase-kebab.md` | `getting-started.md`, `cli-reference.md` |
-| Design docs | `lowercase-kebab.md` | `documentation-refresh.md` |
 | Scratch files | `YYYY-MM-DD-context.md` | `2026-01-06-debug-auth.md` |
 
 ### Status Headers
@@ -113,8 +119,6 @@ docs/
 │   └── rpc-protocol.md    # RPC protocol reference
 ├── reference/
 │   └── internals/         # Reverse engineering notes
-├── designs/               # Approved design docs (permanent)
-│   └── <feature-name>.md
 └── scratch/               # Temporary agent work (disposable)
     └── YYYY-MM-DD-context.md
 ```
