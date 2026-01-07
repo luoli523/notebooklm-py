@@ -107,6 +107,12 @@ class TestArtifactGet:
     def test_artifact_get(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="art_123", title="Test Artifact", artifact_type=4, status=3)
+                ]
+            )
             mock_client.artifacts.get = AsyncMock(
                 return_value=Artifact(
                     id="art_123",
@@ -129,6 +135,8 @@ class TestArtifactGet:
     def test_artifact_get_not_found(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list to return empty (no match for resolve_artifact_id)
+            mock_client.artifacts.list = AsyncMock(return_value=[])
             mock_client.artifacts.get = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
 
@@ -136,8 +144,9 @@ class TestArtifactGet:
                 mock_fetch.return_value = ("csrf", "session")
                 result = runner.invoke(cli, ["artifact", "get", "nonexistent", "-n", "nb_123"])
 
-            assert result.exit_code == 0
-            assert "Artifact not found" in result.output
+            # Now exits with error from resolve_artifact_id (no match)
+            assert result.exit_code == 1
+            assert "No artifact found" in result.output
 
 
 # =============================================================================
@@ -149,6 +158,12 @@ class TestArtifactRename:
     def test_artifact_rename(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="art_123", title="Old Title", artifact_type=4, status=3)
+                ]
+            )
             mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
             mock_client.artifacts.rename = AsyncMock(
                 return_value=Artifact(id="art_123", title="New Title", artifact_type=4, status=3)
@@ -167,6 +182,12 @@ class TestArtifactRename:
     def test_artifact_rename_rejects_mind_map(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution (include the mind map)
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="mm_123", title="Old Title", artifact_type=5, status=3)
+                ]
+            )
             mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_123", ["mm_123", "{}", None, None, "Old Title"]],
@@ -193,6 +214,12 @@ class TestArtifactDelete:
     def test_artifact_delete(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="art_123", title="Test Artifact", artifact_type=4, status=3)
+                ]
+            )
             mock_client.notes.list_mind_maps = AsyncMock(return_value=[])
             mock_client.artifacts.delete = AsyncMock(return_value=None)
             mock_client_cls.return_value = mock_client
@@ -209,6 +236,12 @@ class TestArtifactDelete:
     def test_artifact_delete_mind_map_clears(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution (include the mind map)
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="mm_456", title="Mind Map Title", artifact_type=5, status=3)
+                ]
+            )
             mock_client.notes.list_mind_maps = AsyncMock(
                 return_value=[
                     ["mm_456", ["mm_456", "{}", None, None, "Mind Map Title"]],
@@ -237,6 +270,12 @@ class TestArtifactExport:
     def test_artifact_export_docs(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="art_123", title="Doc", artifact_type=2, status=3)
+                ]
+            )
             mock_client.artifacts.get = AsyncMock(
                 return_value=Artifact(id="art_123", title="Doc", artifact_type=2, status=3)
             )
@@ -257,6 +296,12 @@ class TestArtifactExport:
     def test_artifact_export_sheets(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="art_123", title="Table", artifact_type=9, status=3)
+                ]
+            )
             mock_client.artifacts.get = AsyncMock(
                 return_value=Artifact(id="art_123", title="Table", artifact_type=9, status=3)
             )
@@ -277,6 +322,12 @@ class TestArtifactExport:
     def test_artifact_export_failure(self, runner, mock_auth):
         with patch_client_for_module("artifact") as mock_client_cls:
             mock_client = create_mock_client()
+            # Mock list for partial ID resolution
+            mock_client.artifacts.list = AsyncMock(
+                return_value=[
+                    Artifact(id="art_123", title="Doc", artifact_type=2, status=3)
+                ]
+            )
             mock_client.artifacts.get = AsyncMock(
                 return_value=Artifact(id="art_123", title="Doc", artifact_type=2, status=3)
             )
