@@ -1266,44 +1266,6 @@ class ArtifactsAPI:
         )
 
     # =========================================================================
-    # Audio Overview Operations
-    # =========================================================================
-
-    async def get_audio_overview(self, notebook_id: str) -> Any:
-        """Get audio overview details and status.
-
-        Args:
-            notebook_id: The notebook ID.
-
-        Returns:
-            Audio overview details or None if not available.
-        """
-        params = [notebook_id]
-        return await self._core.rpc_call(
-            RPCMethod.GET_AUDIO,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-        )
-
-    async def delete_audio_overview(self, notebook_id: str) -> Any:
-        """Delete the audio overview for a notebook.
-
-        Args:
-            notebook_id: The notebook ID.
-
-        Returns:
-            Deletion result.
-        """
-        params = [notebook_id]
-        return await self._core.rpc_call(
-            RPCMethod.DELETE_AUDIO,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-            allow_null=True,
-        )
-
-    # =========================================================================
     # Share Operations
     # =========================================================================
 

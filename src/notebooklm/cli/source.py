@@ -4,6 +4,8 @@ Commands:
     list         List sources in a notebook
     add          Add a source (url, text, file, youtube)
     get          Get source details
+    guide        Get AI-generated source summary and keywords
+    stale        Check if a URL/Drive source needs refresh
     delete       Delete a source
     rename       Rename a source
     refresh      Refresh a URL/Drive source
@@ -33,12 +35,14 @@ def source():
 
     \b
     Commands:
-      list      List sources in a notebook
-      add       Add a source (url, text, file, youtube)
-      get       Get source details
-      delete    Delete a source
-      rename    Rename a source
-      refresh   Refresh a URL/Drive source
+      list         List sources in a notebook
+      add          Add a source (url, text, file, youtube)
+      get          Get source details
+      guide        Get AI-generated source summary and keywords
+      stale        Check if source needs refresh
+      delete       Delete a source
+      rename       Rename a source
+      refresh      Refresh a URL/Drive source
 
     \b
     Partial ID Support:
@@ -466,5 +470,104 @@ def source_add_research(ctx, query, notebook_id, search_source, mode, import_all
                     console.print(f"[green]Imported {len(imported)} sources[/green]")
             else:
                 console.print(f"[yellow]Status: {status.get('status', 'unknown')}[/yellow]")
+
+    return _run()
+
+
+@source.command("guide")
+@click.argument("source_id")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@click.option("--json", "json_output", is_flag=True, help="Output as JSON")
+@with_client
+def source_guide(ctx, source_id, notebook_id, json_output, client_auth):
+    """Get AI-generated source summary and keywords.
+
+    Shows the "Source Guide" - an AI-generated overview of what a source contains,
+    including a summary with highlighted keywords and topic tags.
+
+    SOURCE_ID can be a full UUID or a partial prefix (e.g., 'abc' matches 'abc123...').
+
+    \b
+    Examples:
+      source guide abc123                    # Get guide for source
+      source guide abc123 --json             # Output as JSON
+    """
+    nb_id = require_notebook(notebook_id)
+
+    async def _run():
+        async with NotebookLMClient(client_auth) as client:
+            resolved_id = await resolve_source_id(client, nb_id, source_id)
+
+            with console.status("Generating source guide..."):
+                guide = await client.sources.get_guide(nb_id, resolved_id)
+
+            if json_output:
+                data = {
+                    "source_id": resolved_id,
+                    "summary": guide.get("summary", ""),
+                    "keywords": guide.get("keywords", []),
+                }
+                json_output_response(data)
+                return
+
+            summary = guide.get("summary", "")
+            keywords = guide.get("keywords", [])
+
+            if summary:
+                console.print("[bold cyan]Summary:[/bold cyan]")
+                console.print(summary)
+                console.print()
+
+            if keywords:
+                console.print("[bold cyan]Keywords:[/bold cyan]")
+                console.print(", ".join(keywords))
+            elif not summary:
+                console.print("[yellow]No guide available for this source[/yellow]")
+
+    return _run()
+
+
+@source.command("stale")
+@click.argument("source_id")
+@click.option(
+    "-n",
+    "--notebook",
+    "notebook_id",
+    default=None,
+    help="Notebook ID (uses current if not set)",
+)
+@with_client
+def source_stale(ctx, source_id, notebook_id, client_auth):
+    """Check if a URL/Drive source needs refresh.
+
+    Returns exit code 0 if stale (needs refresh), 1 if fresh.
+    This enables shell scripting: if notebooklm source stale ID; then refresh; fi
+
+    SOURCE_ID can be a full UUID or a partial prefix (e.g., 'abc' matches 'abc123...').
+
+    \b
+    Examples:
+      source stale abc123              # Check if stale
+    """
+    nb_id = require_notebook(notebook_id)
+
+    async def _run():
+        async with NotebookLMClient(client_auth) as client:
+            resolved_id = await resolve_source_id(client, nb_id, source_id)
+            is_fresh = await client.sources.check_freshness(nb_id, resolved_id)
+
+            if is_fresh:
+                console.print(f"[green]✓ Source is fresh[/green]")
+                raise SystemExit(1)  # Not stale
+            else:
+                console.print(f"[yellow]⚠ Source is stale[/yellow]")
+                console.print("[dim]Run 'source refresh' to update[/dim]")
+                raise SystemExit(0)  # Is stale
 
     return _run()

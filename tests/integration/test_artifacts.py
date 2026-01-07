@@ -550,27 +550,6 @@ class TestArtifactsAPI:
         assert "V5N4be" in str(request.url)
 
     @pytest.mark.asyncio
-    async def test_get_audio_overview(
-        self,
-        auth_tokens,
-        httpx_mock: HTTPXMock,
-        build_rpc_response,
-    ):
-        """Test getting audio overview status."""
-        response = build_rpc_response(
-            "VUsiyb",
-            [["audio_001", "Audio Overview", None, None, 3, None]],
-        )
-        httpx_mock.add_response(content=response.encode())
-
-        async with NotebookLMClient(auth_tokens) as client:
-            result = await client.artifacts.get_audio_overview("nb_123")
-
-        assert result is not None
-        request = httpx_mock.get_request()
-        assert "VUsiyb" in str(request.url)
-
-    @pytest.mark.asyncio
     async def test_share_audio(
         self,
         auth_tokens,
