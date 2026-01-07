@@ -252,6 +252,8 @@ def artifact_rename(ctx, artifact_id, new_title, notebook_id, client_auth):
                     raise click.ClickException("Mind maps cannot be renamed")
 
             await client.artifacts.rename(nb_id, resolved_id, new_title)
+            # The rename API returns None; if no exception was raised, the operation succeeded.
+            # We display the requested new_title as confirmation.
             console.print(f"[green]Renamed artifact:[/green] {resolved_id}")
             console.print(f"[bold]New title:[/bold] {new_title}")
 

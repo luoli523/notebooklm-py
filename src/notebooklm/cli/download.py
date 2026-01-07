@@ -22,7 +22,7 @@ from .helpers import (
     require_notebook,
     handle_error,
 )
-from .download_helpers import select_artifact, artifact_title_to_filename
+from .download_helpers import select_artifact, artifact_title_to_filename, ArtifactDict
 
 
 @click.group()
@@ -134,11 +134,11 @@ async def _download_artifacts_generic(
                 }
 
             # Convert to dict format for selection logic
-            type_artifacts = [
+            type_artifacts: list[ArtifactDict] = [
                 {
                     "id": a.id,
                     "title": a.title,
-                    "created_at": a.created_at.timestamp() if a.created_at else 0,
+                    "created_at": int(a.created_at.timestamp()) if a.created_at else 0,
                 }
                 for a in completed_artifacts
             ]
@@ -281,7 +281,7 @@ async def _download_artifacts_generic(
             # Single artifact selection
             try:
                 selected, reason = select_artifact(
-                    type_artifacts,  # type: ignore[arg-type]
+                    type_artifacts,
                     latest=latest,
                     earliest=earliest,
                     name=name,
