@@ -92,7 +92,7 @@ This is the initial public release of `notebooklm-py`. While core functionality 
 
 ### Known Issues
 
-- **RPC method IDs may change**: Google can update their internal APIs at any time, breaking this library. Check the [RPC Capture Guide](docs/reference/internals/rpc-capture.md) for how to identify and update method IDs.
+- **RPC method IDs may change**: Google can update their internal APIs at any time, breaking this library. Check the [RPC Capture](docs/reference/internals/rpc-capture.md) for how to identify and update method IDs.
 - **Rate limiting**: Heavy usage may trigger Google's rate limits. Add delays between bulk operations.
 - **Quiz/flashcard generation**: May return `None` in some cases (requires further RPC investigation).
 - **Authentication expiry**: CSRF tokens expire after some time. Re-run `notebooklm login` if you encounter auth errors.

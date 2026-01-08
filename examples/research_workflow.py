@@ -10,7 +10,7 @@ The Research API searches the web or Google Drive for relevant sources
 based on your query, providing AI-curated results.
 
 Prerequisites:
-    - Authentication configured via `notebooklm auth` CLI command
+    - Authentication configured via `notebooklm login` CLI command
     - Valid Google account with NotebookLM access
 """
 
@@ -22,7 +22,6 @@ async def main():
     """Demonstrate web research and source import."""
 
     async with await NotebookLMClient.from_storage() as client:
-
         # Create a notebook for the research
         print("Creating notebook...")
         notebook = await client.notebooks.create("Climate Research")
@@ -40,8 +39,8 @@ async def main():
         task = await client.research.start(
             notebook.id,
             query="climate change mitigation strategies",
-            source="web",   # "web" or "drive"
-            mode="fast",    # "fast" or "deep"
+            source="web",  # "web" or "drive"
+            mode="fast",  # "fast" or "deep"
         )
 
         if not task:
@@ -57,7 +56,9 @@ async def main():
             result = await client.research.poll(notebook.id)
 
             if result["status"] == "completed":
-                print(f"\nResearch complete! Found {len(result.get('sources', []))} sources")
+                print(
+                    f"\nResearch complete! Found {len(result.get('sources', []))} sources"
+                )
                 break
             elif result["status"] == "in_progress":
                 print(f"  Still searching... (attempt {attempt + 1})")

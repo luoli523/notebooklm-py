@@ -60,7 +60,7 @@ notebooklm [--storage PATH] [--version] <command> [OPTIONS] [ARGS]
 | `list` | - | - | `source list` |
 | `add <content>` | URL/file/text | - | `source add "https://..."` |
 | `add-drive <id> <title>` | Drive file ID | - | `source add-drive abc123 "Doc"` |
-| `add-research <query>` | Search query | `--mode [fast\|deep]`, `--no-wait` | `source add-research "AI" --mode deep --no-wait` |
+| `add-research <query>` | Search query | `--mode [fast|deep]`, `--from [web|drive]`, `--import-all`, `--no-wait` | `source add-research "AI" --mode deep --no-wait` |
 | `get <id>` | Source ID | - | `source get src123` |
 | `rename <id> <title>` | Source ID, new title | - | `source rename src123 "New Name"` |
 | `refresh <id>` | Source ID | - | `source refresh src123` |
@@ -103,10 +103,10 @@ notebooklm [--storage PATH] [--version] <command> [OPTIONS] [ARGS]
 
 | Command | Arguments | Options | Example |
 |---------|-----------|---------|---------|
-| `audio [path]` | Output path | - | `download audio ./podcast.mp3` |
-| `video [path]` | Output path | - | `download video ./video.mp4` |
-| `slide-deck [path]` | Output directory | - | `download slide-deck ./slides/` |
-| `infographic [path]` | Output path | - | `download infographic ./info.png` |
+| `audio [path]` | Output path | `--all`, `--latest`, `--name`, `--force`, `--dry-run` | `download audio --all` |
+| `video [path]` | Output path | `--all`, `--latest`, `--name`, `--force`, `--dry-run` | `download video --latest` |
+| `slide-deck [path]` | Output directory | `--all`, `--latest`, `--name`, `--force`, `--dry-run` | `download slide-deck ./slides/` |
+| `infographic [path]` | Output path | `--all`, `--latest`, `--name`, `--force`, `--dry-run` | `download infographic ./info.png` |
 
 ### Note Commands (`notebooklm note <cmd>`)
 
@@ -157,6 +157,32 @@ notebooklm use <notebook_id>
 Supports partial ID matching:
 ```bash
 notebooklm use abc  # Matches abc123def456...
+```
+
+### Source: `add-research`
+
+Perform AI-powered research and add discovered sources to the notebook.
+
+```bash
+notebooklm source add-research <query> [OPTIONS]
+```
+
+**Options:**
+- `--mode [fast|deep]` - Research depth (default: fast)
+- `--from [web|drive]` - Search source (default: web)
+- `--import-all` - Automatically import all found sources (works with blocking mode)
+- `--no-wait` - Start research and return immediately (non-blocking)
+
+**Examples:**
+```bash
+# Fast web research (blocking)
+notebooklm source add-research "Quantum computing basics"
+
+# Deep research into Google Drive
+notebooklm source add-research "Project Alpha" --from drive --mode deep
+
+# Non-blocking deep research for agent workflows
+notebooklm source add-research "AI safety papers" --mode deep --no-wait
 ```
 
 ### Generate: `audio`
@@ -223,6 +249,40 @@ notebooklm generate report [description] [OPTIONS]
 ```bash
 notebooklm generate report --type study-guide
 notebooklm generate report "Executive summary for stakeholders" --type briefing-doc
+```
+
+### Download: `audio`, `video`, `slide-deck`, `infographic`
+
+Download generated artifacts to your local machine.
+
+```bash
+notebooklm download <type> [OUTPUT_PATH] [OPTIONS]
+```
+
+**Options:**
+- `--all` - Download all artifacts of this type
+- `--latest` - Download only the most recent artifact (default if no ID/name provided)
+- `--earliest` - Download only the oldest artifact
+- `--name NAME` - Download artifact with matching title (supports partial matches)
+- `--artifact-id ID` - Download specific artifact by ID
+- `--dry-run` - Show what would be downloaded without actually downloading
+- `--force` - Overwrite existing files
+- `--no-clobber` - Skip if file already exists (default)
+- `--json` - Output result in JSON format
+
+**Examples:**
+```bash
+# Download the latest podcast
+notebooklm download audio ./podcast.mp3
+
+# Download all infographics
+notebooklm download infographic --all
+
+# Download a specific slide deck by name
+notebooklm download slide-deck --name "Final Presentation"
+
+# Preview a batch download
+notebooklm download audio --all --dry-run
 ```
 
 ---

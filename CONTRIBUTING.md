@@ -115,8 +115,7 @@ docs/
 ├── contributing/          # Contributor guides
 │   ├── architecture.md    # Code structure
 │   ├── debugging.md       # Network capture guide
-│   ├── testing.md         # Running tests
-│   └── adding-rpc-methods.md  # How to add new RPCs
+│   └── testing.md         # Running tests
 ├── reference/
 │   └── internals/         # Reverse engineering notes
 └── scratch/               # Temporary agent work (disposable)

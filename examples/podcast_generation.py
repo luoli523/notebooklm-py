@@ -8,7 +8,7 @@ This example demonstrates a complete podcast generation workflow:
 5. Download the result
 
 Prerequisites:
-    - Authentication configured via `notebooklm auth` CLI command
+    - Authentication configured via `notebooklm login` CLI command
     - Valid Google account with NotebookLM access
 """
 
@@ -21,7 +21,6 @@ async def main():
 
     # Connect to NotebookLM using stored authentication
     async with await NotebookLMClient.from_storage() as client:
-
         # Step 1: Create a new notebook for our content
         print("Creating notebook...")
         notebook = await client.notebooks.create("AI Research Podcast")
@@ -63,8 +62,8 @@ async def main():
                 notebook.id,
                 generation.task_id,
                 initial_interval=5.0,  # Start checking every 5 seconds
-                max_interval=15.0,     # Max 15 seconds between checks
-                timeout=600.0,         # 10 minute timeout
+                max_interval=15.0,  # Max 15 seconds between checks
+                timeout=600.0,  # 10 minute timeout
             )
 
             if final_status.is_complete:

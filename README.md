@@ -93,7 +93,7 @@ asyncio.run(main())
 
 - **[Architecture](docs/contributing/architecture.md)** - Code structure
 - **[Testing](docs/contributing/testing.md)** - Running and writing tests
-- **[RPC Internals](docs/reference/internals/)** - Protocol reference and capture guides
+- **[RPC Capture](docs/reference/internals/rpc-capture.md)** - Protocol reference and capture guides
 - **[Debugging](docs/contributing/debugging.md)** - Network capture guide
 
 ## License
