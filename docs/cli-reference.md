@@ -1,7 +1,7 @@
 # CLI Reference
 
 **Status:** Active
-**Last Updated:** 2026-01-07
+**Last Updated:** 2026-01-08
 
 Complete command reference for the `notebooklm` CLI.
 
@@ -15,6 +15,13 @@ notebooklm [--storage PATH] [--version] <command> [OPTIONS] [ARGS]
 - `--storage PATH` - Override the default storage location (`~/.notebooklm/storage_state.json`)
 - `--version` - Show version and exit
 - `--help` - Show help message
+
+**Environment Variables:**
+- `NOTEBOOKLM_HOME` - Base directory for all config files (default: `~/.notebooklm`)
+- `NOTEBOOKLM_AUTH_JSON` - Inline authentication JSON (for CI/CD, no file writes needed)
+- `NOTEBOOKLM_DEBUG_RPC` - Enable RPC debug logging (`1` to enable)
+
+See [Configuration](configuration.md) for details on environment variables and CI/CD setup.
 
 **Command Organization:**
 - **Session commands** - Authentication and context management
@@ -33,6 +40,8 @@ notebooklm [--storage PATH] [--version] <command> [OPTIONS] [ARGS]
 | `login` | Authenticate via browser | `notebooklm login` |
 | `use <id>` | Set active notebook | `notebooklm use abc123` |
 | `status` | Show current context | `notebooklm status` |
+| `status --paths` | Show configuration paths | `notebooklm status --paths` |
+| `status --json` | Output status as JSON | `notebooklm status --json` |
 | `clear` | Clear current context | `notebooklm clear` |
 
 ### Notebook Commands
@@ -158,6 +167,44 @@ notebooklm use <notebook_id>
 Supports partial ID matching:
 ```bash
 notebooklm use abc  # Matches abc123def456...
+```
+
+### Session: `status`
+
+Show current context (active notebook and conversation).
+
+```bash
+notebooklm status [OPTIONS]
+```
+
+**Options:**
+- `--paths` - Show resolved configuration file paths
+- `--json` - Output as JSON (useful for scripts)
+
+**Examples:**
+```bash
+# Basic status
+notebooklm status
+
+# Show where config files are located
+notebooklm status --paths
+# Output shows home_dir, storage_path, context_path, browser_profile_dir
+
+# JSON output for scripts
+notebooklm status --json
+```
+
+**With `--paths`:**
+```
+                Configuration Paths
+┏━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┓
+┃ File            ┃ Path                         ┃ Source          ┃
+┡━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━┩
+│ Home Directory  │ /home/user/.notebooklm      │ default         │
+│ Storage State   │ .../storage_state.json      │                 │
+│ Context         │ .../context.json            │                 │
+│ Browser Profile │ .../browser_profile         │                 │
+└─────────────────┴──────────────────────────────┴─────────────────┘
 ```
 
 ### Source: `add-research`

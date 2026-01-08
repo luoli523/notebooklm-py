@@ -1,7 +1,7 @@
 # Getting Started
 
 **Status:** Active
-**Last Updated:** 2026-01-07
+**Last Updated:** 2026-01-08
 
 This guide walks you through installing and using `notebooklm-py` for the first time.
 
@@ -53,6 +53,14 @@ This will:
 4. Save your session to `~/.notebooklm/storage_state.json`
 
 **Note:** The browser uses a persistent profile at `~/.notebooklm/browser_profile/` to avoid Google's bot detection. This makes it appear as a regular browser installation.
+
+**Custom Locations:** Set `NOTEBOOKLM_HOME` to store all configuration files in a different directory:
+```bash
+export NOTEBOOKLM_HOME=/custom/path
+notebooklm login
+```
+
+See [Configuration](configuration.md) for multiple accounts, CI/CD setup, and more options.
 
 ### Verifying Authentication
 

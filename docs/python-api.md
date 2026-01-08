@@ -78,6 +78,33 @@ auth = AuthTokens(
 client = NotebookLMClient(auth)
 ```
 
+**Environment Variable Support:**
+
+The library respects these environment variables for authentication:
+
+| Variable | Description |
+|----------|-------------|
+| `NOTEBOOKLM_HOME` | Base directory for config files (default: `~/.notebooklm`) |
+| `NOTEBOOKLM_AUTH_JSON` | Inline auth JSON - no file needed (for CI/CD) |
+
+**Precedence** (highest to lowest):
+1. Explicit `path` argument to `from_storage()`
+2. `NOTEBOOKLM_AUTH_JSON` environment variable
+3. `$NOTEBOOKLM_HOME/storage_state.json`
+4. `~/.notebooklm/storage_state.json`
+
+**CI/CD Example:**
+```python
+import os
+
+# Set auth JSON from environment (e.g., GitHub Actions secret)
+os.environ["NOTEBOOKLM_AUTH_JSON"] = '{"cookies": [...]}'
+
+# Client automatically uses the env var
+async with await NotebookLMClient.from_storage() as client:
+    notebooks = await client.notebooks.list()
+```
+
 ### Error Handling
 
 The library raises `RPCError` for API failures:
