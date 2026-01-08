@@ -67,7 +67,7 @@ async def _download_artifacts_generic(
         ctx: Click context
         artifact_type_name: Human-readable type name ("audio", "video", etc.)
         artifact_type_id: RPC type ID (1=audio, 3=video, 7=infographic, 8=slide-deck)
-        file_extension: File extension (".mp3", ".mp4", ".png", "" for directories)
+        file_extension: File extension (".mp3", ".mp4", ".png", ".pdf")
         default_output_dir: Default output directory for --all flag
         output_path: User-specified output path
         notebook: Notebook ID
@@ -78,8 +78,8 @@ async def _download_artifacts_generic(
         artifact_id: Select by exact artifact ID
         json_output: Output JSON instead of text
         dry_run: Preview without downloading
-        force: Overwrite existing files/directories
-        no_clobber: Skip if file/directory exists
+        force: Overwrite existing files
+        no_clobber: Skip if file exists
 
     Returns:
         Result dictionary with operation details
@@ -91,9 +91,6 @@ async def _download_artifacts_generic(
         raise click.UsageError("Cannot specify both --latest and --earliest")
     if download_all and artifact_id:
         raise click.UsageError("Cannot specify both --all and --artifact-id")
-
-    # Is it a directory type (slide-deck)?
-    is_directory_type = file_extension == ""
 
     # Get notebook and auth
     nb_id = require_notebook(notebook)
@@ -143,35 +140,27 @@ async def _download_artifacts_generic(
                 for a in completed_artifacts
             ]
 
-            # Helper for file/dir conflict resolution
+            # Helper for file conflict resolution
             def _resolve_conflict(path: Path) -> tuple[Path | None, dict | None]:
                 if not path.exists():
                     return path, None
 
                 if no_clobber:
-                    entity_type = "directory" if is_directory_type else "file"
                     return None, {
                         "status": "skipped",
-                        "reason": f"{entity_type} exists",
+                        "reason": "file exists",
                         "path": str(path),
                     }
 
                 if not force:
                     # Auto-rename
                     counter = 2
-                    if is_directory_type:
-                        base_name = path.name
-                        parent = path.parent
-                        while path.exists():
-                            path = parent / f"{base_name} ({counter})"
-                            counter += 1
-                    else:
-                        base_name = path.stem
-                        parent = path.parent
-                        ext = path.suffix
-                        while path.exists():
-                            path = parent / f"{base_name} ({counter}){ext}"
-                            counter += 1
+                    base_name = path.stem
+                    parent = path.parent
+                    ext = path.suffix
+                    while path.exists():
+                        path = parent / f"{base_name} ({counter}){ext}"
+                        counter += 1
 
                 return path, None
 
@@ -193,7 +182,7 @@ async def _download_artifacts_generic(
                                 "title": a["title"],
                                 "filename": artifact_title_to_filename(
                                     str(a["title"]),
-                                    file_extension if not is_directory_type else "",
+                                    file_extension,
                                     set(),
                                 ),
                             }
@@ -217,7 +206,7 @@ async def _download_artifacts_generic(
                     # Generate safe name
                     item_name = artifact_title_to_filename(
                         str(artifact["title"]),
-                        file_extension if not is_directory_type else "",
+                        file_extension,
                         existing_names,
                     )
                     existing_names.add(item_name)
@@ -242,10 +231,6 @@ async def _download_artifacts_generic(
 
                     # Download
                     try:
-                        # For directory types, create the directory first
-                        if is_directory_type:
-                            item_path.mkdir(parents=True, exist_ok=True)
-
                         # Download using dispatch
                         await download_fn(
                             nb_id, str(item_path), artifact_id=str(artifact["id"])
@@ -294,7 +279,7 @@ async def _download_artifacts_generic(
             if not output_path:
                 safe_name = artifact_title_to_filename(
                     str(selected["title"]),
-                    file_extension if not is_directory_type else "",
+                    file_extension,
                     set(),
                 )
                 final_path = Path.cwd() / safe_name
@@ -317,9 +302,8 @@ async def _download_artifacts_generic(
             # Resolve conflicts
             resolved_path, skip_error = _resolve_conflict(final_path)
             if skip_error or resolved_path is None:
-                entity_type = "Directory" if is_directory_type else "File"
                 return {
-                    "error": f"{entity_type} exists: {final_path}",
+                    "error": f"File exists: {final_path}",
                     "artifact": selected,
                     "suggestion": "Use --force to overwrite or choose a different path",
                 }
@@ -328,10 +312,6 @@ async def _download_artifacts_generic(
 
             # Download
             try:
-                # For directory types, create the directory first
-                if is_directory_type:
-                    final_path.mkdir(parents=True, exist_ok=True)
-
                 # Download using dispatch
                 result_path = await download_fn(
                     nb_id, str(final_path), artifact_id=str(selected["id"])
