@@ -1,53 +1,9 @@
 # Python API Reference
 
 **Status:** Active
-**Last Updated:** 2026-01-07
+**Last Updated:** 2026-01-08
 
 Complete reference for the `notebooklm` Python library.
-
-## Migration Guide (v0.x → v1.x)
-
-### Breaking Changes
-
-The service layer has been removed. Methods are now accessed directly on the client through namespaced APIs.
-
-**Before (v0.x):**
-```python
-from notebooklm import NotebookLMClient
-from notebooklm.services import NotebookService, SourceService, ArtifactService
-
-async with await NotebookLMClient.from_storage() as client:
-    nb_svc = NotebookService(client)
-    src_svc = SourceService(client)
-    art_svc = ArtifactService(client)
-
-    notebooks = await nb_svc.list()
-    source = await src_svc.add_url(nb_id, url)
-    status = await art_svc.generate_audio(nb_id)
-```
-
-**After (v1.x):**
-```python
-from notebooklm import NotebookLMClient
-
-async with await NotebookLMClient.from_storage() as client:
-    notebooks = await client.notebooks.list()
-    source = await client.sources.add_url(nb_id, url)
-    status = await client.artifacts.generate_audio(nb_id)
-```
-
-### Method Mapping
-
-| Old (v0.x) | New (v1.x) |
-|------------|------------|
-| `NotebookService(client).list()` | `client.notebooks.list()` |
-| `NotebookService(client).create(title)` | `client.notebooks.create(title)` |
-| `SourceService(client).add_url(...)` | `client.sources.add_url(...)` |
-| `SourceService(client).add_file(...)` | `client.sources.add_file(...)` |
-| `ArtifactService(client).generate_audio(...)` | `client.artifacts.generate_audio(...)` |
-| `ArtifactService(client).wait_for_completion(...)` | `client.artifacts.wait_for_completion(...)` |
-
----
 
 ## Quick Start
 

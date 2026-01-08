@@ -64,7 +64,7 @@ from .cli.grouped import SectionedGroup
 )
 @click.pass_context
 def cli(ctx, storage):
-    """NotebookLM automation CLI.
+    """NotebookLM CLI.
 
     \b
     Quick start:

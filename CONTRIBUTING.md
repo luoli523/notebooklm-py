@@ -79,7 +79,8 @@ Design decisions should be captured where they're most useful, not in separate d
 |------|--------|---------|
 | Root GitHub files | `UPPERCASE.md` | `README.md`, `CONTRIBUTING.md` |
 | Agent files | `UPPERCASE.md` | `CLAUDE.md`, `AGENTS.md` |
-| All docs/ files | `lowercase-kebab.md` | `getting-started.md`, `cli-reference.md` |
+| Folder README | `README.md` | `docs/README.md` (GitHub auto-renders) |
+| All other docs/ files | `lowercase-kebab.md` | `getting-started.md`, `cli-reference.md` |
 | Scratch files | `YYYY-MM-DD-context.md` | `2026-01-06-debug-auth.md` |
 
 ### Status Headers
