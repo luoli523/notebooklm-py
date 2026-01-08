@@ -4,6 +4,9 @@ All artifact generation tests consolidated here. These tests:
 - Use `generation_notebook` fixture (session-scoped, has content)
 - Are marked with @pytest.mark.slow (take 30+ seconds)
 - Variant tests are marked @pytest.mark.exhaustive (skip to save quota)
+
+Note: Cleanup is handled automatically - the session-scoped generation_notebook
+is deleted at test session end, removing all created artifacts.
 """
 
 import pytest
@@ -30,7 +33,7 @@ class TestAudioGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_audio_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_audio(generation_notebook.id)
         assert result is not None
@@ -39,7 +42,7 @@ class TestAudioGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_audio_deep_dive_long(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_audio(
             generation_notebook.id,
@@ -52,7 +55,7 @@ class TestAudioGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_audio_brief_short(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_audio(
             generation_notebook.id,
@@ -65,7 +68,7 @@ class TestAudioGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_audio_critique(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_audio(
             generation_notebook.id,
@@ -77,7 +80,7 @@ class TestAudioGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_audio_debate(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_audio(
             generation_notebook.id,
@@ -89,7 +92,7 @@ class TestAudioGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_audio_with_language(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_audio(
             generation_notebook.id,
@@ -106,7 +109,7 @@ class TestVideoGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_video_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(generation_notebook.id)
         assert result is not None
@@ -115,7 +118,7 @@ class TestVideoGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_video_explainer_anime(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(
             generation_notebook.id,
@@ -128,7 +131,7 @@ class TestVideoGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_video_brief_whiteboard(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(
             generation_notebook.id,
@@ -141,7 +144,7 @@ class TestVideoGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_video_with_instructions(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(
             generation_notebook.id,
@@ -155,7 +158,7 @@ class TestVideoGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_video_kawaii_style(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(
             generation_notebook.id,
@@ -167,7 +170,7 @@ class TestVideoGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_video_watercolor_style(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(
             generation_notebook.id,
@@ -179,7 +182,7 @@ class TestVideoGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_video_auto_style(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_video(
             generation_notebook.id,
@@ -196,7 +199,7 @@ class TestQuizGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_quiz_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_quiz(generation_notebook.id)
         assert result is not None
@@ -205,7 +208,7 @@ class TestQuizGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_quiz_with_options(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_quiz(
             generation_notebook.id,
@@ -219,7 +222,7 @@ class TestQuizGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_quiz_fewer_easy(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_quiz(
             generation_notebook.id,
@@ -237,7 +240,7 @@ class TestFlashcardsGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_flashcards_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_flashcards(generation_notebook.id)
         assert result is not None
@@ -246,7 +249,7 @@ class TestFlashcardsGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_flashcards_with_options(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_flashcards(
             generation_notebook.id,
@@ -265,7 +268,7 @@ class TestInfographicGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_infographic_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_infographic(generation_notebook.id)
         assert result is not None
@@ -274,7 +277,7 @@ class TestInfographicGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_infographic_portrait_detailed(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_infographic(
             generation_notebook.id,
@@ -288,7 +291,7 @@ class TestInfographicGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_infographic_square_concise(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_infographic(
             generation_notebook.id,
@@ -301,7 +304,7 @@ class TestInfographicGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_infographic_landscape(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_infographic(
             generation_notebook.id,
@@ -318,7 +321,7 @@ class TestSlideDeckGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_slide_deck_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_slide_deck(generation_notebook.id)
         assert result is not None
@@ -327,7 +330,7 @@ class TestSlideDeckGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_slide_deck_detailed(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_slide_deck(
             generation_notebook.id,
@@ -341,7 +344,7 @@ class TestSlideDeckGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_slide_deck_presenter_short(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_slide_deck(
             generation_notebook.id,
@@ -359,7 +362,7 @@ class TestDataTableGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_data_table_default(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_data_table(generation_notebook.id)
         assert result is not None
@@ -368,7 +371,7 @@ class TestDataTableGeneration:
     @pytest.mark.slow
     @pytest.mark.exhaustive
     async def test_generate_data_table_with_instructions(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         result = await client.artifacts.generate_data_table(
             generation_notebook.id,
@@ -405,7 +408,7 @@ class TestStudyGuideGeneration:
     @pytest.mark.asyncio
     @pytest.mark.slow
     async def test_generate_study_guide(
-        self, client, generation_notebook, created_artifacts, cleanup_artifacts
+        self, client, generation_notebook
     ):
         """Test study guide generation."""
         result = await client.artifacts.generate_study_guide(generation_notebook.id)
