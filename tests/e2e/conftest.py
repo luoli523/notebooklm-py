@@ -80,13 +80,27 @@ async def client(auth_tokens) -> AsyncGenerator[NotebookLMClient, None]:
 
 
 @pytest.fixture
-def test_notebook_id(golden_notebook_id):
-    """Get notebook ID from env var or use golden notebook.
+def test_notebook_id():
+    """Get notebook ID from NOTEBOOKLM_TEST_NOTEBOOK_ID env var.
 
-    Uses NOTEBOOKLM_TEST_NOTEBOOK_ID if set, otherwise falls back
-    to the golden notebook (Google's shared demo notebook).
+    This env var is REQUIRED for E2E tests. You must create your own
+    test notebook with sources and artifacts. See docs/contributing/testing.md.
     """
-    return os.environ.get("NOTEBOOKLM_TEST_NOTEBOOK_ID", golden_notebook_id)
+    notebook_id = os.environ.get("NOTEBOOKLM_TEST_NOTEBOOK_ID")
+    if not notebook_id:
+        pytest.exit(
+            "\n\nERROR: NOTEBOOKLM_TEST_NOTEBOOK_ID environment variable is not set.\n\n"
+            "E2E tests require YOUR OWN test notebook with content.\n\n"
+            "Setup instructions:\n"
+            "  1. Create a notebook at https://notebooklm.google.com\n"
+            "  2. Add sources (text, URL, PDF, etc.)\n"
+            "  3. Generate some artifacts (audio, quiz, etc.)\n"
+            "  4. Copy notebook ID from URL and run:\n"
+            "     export NOTEBOOKLM_TEST_NOTEBOOK_ID='your-notebook-id'\n\n"
+            "See docs/contributing/testing.md for details.\n",
+            returncode=1,
+        )
+    return notebook_id
 
 
 @pytest.fixture

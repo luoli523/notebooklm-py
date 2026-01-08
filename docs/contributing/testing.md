@@ -110,15 +110,15 @@ tests/
 
 | I want to... | Use | Why |
 |--------------|-----|-----|
-| List/download existing artifacts | `test_notebook_id` | Golden notebook has pre-made content |
+| List/download existing artifacts | `test_notebook_id` | Your notebook with pre-made content |
 | Add/delete sources or notes | `temp_notebook` | Isolated, auto-cleanup |
 | Generate audio/video/quiz | `generation_notebook` | Writable, has content, session-scoped |
 
-### `test_notebook_id` (Your Test Notebook)
+### `test_notebook_id` (Your Test Notebook - REQUIRED)
 
-Returns `NOTEBOOKLM_TEST_NOTEBOOK_ID` env var, or falls back to the golden notebook.
+Returns `NOTEBOOKLM_TEST_NOTEBOOK_ID` env var. **Tests will exit with an error if not set.**
 
-**You should set this to YOUR notebook** (see Prerequisites above). Your notebook must have:
+Your notebook must have:
 - Multiple sources (text, URL, etc.)
 - Pre-generated artifacts (audio, quiz, etc.)
 
@@ -128,8 +128,6 @@ async def test_list_artifacts(self, client, test_notebook_id):
     artifacts = await client.artifacts.list(test_notebook_id)
     assert isinstance(artifacts, list)
 ```
-
-**Golden notebook fallback:** `19bde485-a9c1-4809-8884-e872b2b67b44` - Google's shared demo notebook. Read-only, useful for CI or quick validation, but you can't generate artifacts on it.
 
 ### `temp_notebook`
 
@@ -331,12 +329,9 @@ Your session expired. Re-authenticate:
 notebooklm login
 ```
 
-### Golden notebook tests fail
+### "NOTEBOOKLM_TEST_NOTEBOOK_ID not set" error
 
-The golden notebook (`19bde485-a9c1-4809-8884-e872b2b67b44`) may be unavailable or changed. Set your own:
-```bash
-export NOTEBOOKLM_TEST_NOTEBOOK_ID="your-notebook-id"
-```
+This is expected - E2E tests require your own notebook. Follow Prerequisites step 3 to create one.
 
 ### Too many artifacts accumulating
 
