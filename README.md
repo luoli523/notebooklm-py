@@ -1,12 +1,11 @@
 # notebooklm-py
-
-<p align="center">
+<p align="left">
   <img src="notebooklm-py.png" alt="notebooklm-py logo" width="128">
 </p>
 
-**Unofficial Python library, CLI, and agent skills for Google NotebookLM**
+# Unofficial Python library, CLI, and agent skills for NotebookLM
 
-Automate Google NotebookLM programmatically. Create notebooks, add sources, chat with your content, and generate podcasts, videos, quizzes, and more.
+Automate NotebookLM programmatically. Create notebooks, add sources, chat with your content, and generate podcasts, videos, quizzes, and more.
 
 [![PyPI version](https://badge.fury.io/py/notebooklm-py.svg)](https://badge.fury.io/py/notebooklm-py)
 [![Python Version](https://img.shields.io/pypi/pyversions/notebooklm-py.svg)](https://pypi.org/project/notebooklm-py/)
