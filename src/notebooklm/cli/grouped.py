@@ -13,7 +13,7 @@ class SectionedGroup(click.Group):
 
     Instead of a flat alphabetical list, commands are grouped by function:
     - Session: login, use, status, clear
-    - Notebooks: list, create, delete, rename, share, featured, summary, analytics
+    - Notebooks: list, create, delete, rename, share, summary
     - Chat: ask, configure, history
     - Command Groups: source, artifact, note (show subcommands)
     - Artifact Actions: generate, download (show types)
@@ -22,7 +22,7 @@ class SectionedGroup(click.Group):
     # Regular commands - show help text
     command_sections = OrderedDict([
         ("Session", ["login", "use", "status", "clear"]),
-        ("Notebooks", ["list", "create", "delete", "rename", "share", "featured", "summary", "analytics"]),
+        ("Notebooks", ["list", "create", "delete", "rename", "share", "summary"]),
         ("Chat", ["ask", "configure", "history"]),
     ])
 

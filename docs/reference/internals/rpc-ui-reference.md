@@ -45,7 +45,6 @@
 | `rc3d8d` | RENAME_ARTIFACT | Rename artifact | `_artifacts.py` |
 | `Krh3pd` | EXPORT_ARTIFACT | Export to Docs/Sheets | `_artifacts.py` |
 | `RGP97b` | SHARE_ARTIFACT | Toggle notebook sharing | `_notebooks.py` |
-| `nS9Qlc` | LIST_FEATURED_NOTEBOOKS | List featured notebooks | `_notebooks.py` |
 | `QDyure` | SHARE_NOTEBOOK | Set notebook visibility (restricted/public) | `_notebooks.py` |
 | `JFMDGd` | GET_SHARE_STATUS | Get notebook share settings | Not implemented |
 | `ciyUvf` | GET_SUGGESTED_REPORTS | Get AI-suggested report formats | `_artifacts.py` |
@@ -861,19 +860,6 @@ await rpc_call(
 #         ...
 #     ]],
 # ]
-```
-
-### RPC: LIST_FEATURED_NOTEBOOKS (nS9Qlc)
-
-**Source:** `_notebooks.py::list_featured()`
-
-Lists featured/public notebooks with pagination.
-
-```python
-params = [
-    page_size,    # 0: Number of notebooks per page (e.g., 10)
-    page_token,   # 1: Pagination token (None for first page)
-]
 ```
 
 ### RPC: GET_SHARE_STATUS (JFMDGd)

@@ -44,9 +44,7 @@ notebooklm [--storage PATH] [--version] <command> [OPTIONS] [ARGS]
 | `delete <id>` | Delete notebook | `notebooklm delete abc123` |
 | `rename <title>` | Rename current notebook | `notebooklm rename "New Title"` |
 | `share` | Toggle notebook sharing | `notebooklm share` or `notebooklm share --revoke` |
-| `featured` | List public notebooks | `notebooklm featured` |
 | `summary` | Get AI summary | `notebooklm summary` |
-| `analytics` | Get usage stats | `notebooklm analytics` |
 
 ### Chat Commands
 

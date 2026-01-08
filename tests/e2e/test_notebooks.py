@@ -127,41 +127,6 @@ class TestNotebookSharing:
 
 
 @requires_auth
-class TestNotebookAnalytics:
-    """Tests for notebook analytics operations."""
-
-    @pytest.mark.asyncio
-    @pytest.mark.readonly
-    @pytest.mark.xfail(reason="Analytics RPC may not be available for all notebooks")
-    async def test_get_analytics(self, client, test_notebook_id):
-        """Test getting notebook analytics."""
-        analytics = await client.notebooks.get_analytics(test_notebook_id)
-        # Analytics may be None for notebooks with no data
-        # or a dict/list with analytics info
-        assert analytics is None or isinstance(analytics, (dict, list))
-
-
-@requires_auth
-class TestNotebookFeatured:
-    """Tests for featured notebooks operations."""
-
-    @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Featured notebooks API may require specific permissions")
-    async def test_list_featured(self, client):
-        """Test listing featured notebooks."""
-        result = await client.notebooks.list_featured()
-        # Returns list of featured notebooks or empty
-        assert result is not None
-
-    @pytest.mark.asyncio
-    @pytest.mark.xfail(reason="Featured notebooks API may require specific permissions")
-    async def test_list_featured_with_pagination(self, client):
-        """Test listing featured notebooks with pagination."""
-        result = await client.notebooks.list_featured(page_size=5)
-        assert result is not None
-
-
-@requires_auth
 class TestNotebookRecent:
     """Tests for recent notebooks operations - use temp_notebook."""
 

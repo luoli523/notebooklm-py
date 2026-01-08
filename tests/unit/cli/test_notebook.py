@@ -361,53 +361,6 @@ class TestNotebookSummary:
 
 
 # =============================================================================
-# NOTEBOOK ANALYTICS TESTS
-# =============================================================================
-
-
-class TestNotebookAnalytics:
-    def test_notebook_analytics(self, runner, mock_auth):
-        with patch_main_cli_client() as mock_client_cls:
-            mock_client = create_mock_client()
-            # Mock list for partial ID resolution
-            mock_client.notebooks.list = AsyncMock(
-                return_value=[
-                    Notebook(id="nb_123", title="Test Notebook", created_at=datetime(2024, 1, 1), is_owner=True),
-                ]
-            )
-            mock_client.notebooks.get_analytics = AsyncMock(
-                return_value={"views": 100, "queries": 50}
-            )
-            mock_client_cls.return_value = mock_client
-
-            with patch("notebooklm.cli.helpers.fetch_tokens", new_callable=AsyncMock) as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["analytics", "-n", "nb_123"])
-
-            assert result.exit_code == 0
-            assert "Analytics" in result.output
-
-    def test_notebook_analytics_not_available(self, runner, mock_auth):
-        with patch_main_cli_client() as mock_client_cls:
-            mock_client = create_mock_client()
-            # Mock list for partial ID resolution
-            mock_client.notebooks.list = AsyncMock(
-                return_value=[
-                    Notebook(id="nb_123", title="Test Notebook", created_at=datetime(2024, 1, 1), is_owner=True),
-                ]
-            )
-            mock_client.notebooks.get_analytics = AsyncMock(return_value=None)
-            mock_client_cls.return_value = mock_client
-
-            with patch("notebooklm.cli.helpers.fetch_tokens", new_callable=AsyncMock) as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["analytics", "-n", "nb_123"])
-
-            assert result.exit_code == 0
-            assert "No analytics available" in result.output
-
-
-# =============================================================================
 # NOTEBOOK HISTORY TESTS
 # =============================================================================
 
@@ -623,44 +576,6 @@ class TestSourceAddResearch:
 
             assert result.exit_code == 0
             assert "Imported 1 sources" in result.output
-
-
-# =============================================================================
-# NOTEBOOK FEATURED TESTS
-# =============================================================================
-
-
-class TestNotebookFeatured:
-    def test_notebook_featured(self, runner, mock_auth):
-        with patch_main_cli_client() as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.notebooks.list_featured = AsyncMock(
-                return_value=[
-                    ["nb_1", "Featured Notebook 1"],
-                    ["nb_2", "Featured Notebook 2"],
-                ]
-            )
-            mock_client_cls.return_value = mock_client
-
-            with patch("notebooklm.cli.helpers.fetch_tokens", new_callable=AsyncMock) as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["featured"])
-
-            assert result.exit_code == 0
-            assert "Featured Notebooks" in result.output
-
-    def test_notebook_featured_empty(self, runner, mock_auth):
-        with patch_main_cli_client() as mock_client_cls:
-            mock_client = create_mock_client()
-            mock_client.notebooks.list_featured = AsyncMock(return_value=[])
-            mock_client_cls.return_value = mock_client
-
-            with patch("notebooklm.cli.helpers.fetch_tokens", new_callable=AsyncMock) as mock_fetch:
-                mock_fetch.return_value = ("csrf", "session")
-                result = runner.invoke(cli, ["featured"])
-
-            assert result.exit_code == 0
-            assert "No featured notebooks found" in result.output
 
 
 # =============================================================================

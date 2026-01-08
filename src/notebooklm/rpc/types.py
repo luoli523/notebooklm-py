@@ -82,9 +82,7 @@ class RPCMethod(str, Enum):
     # Note: SET_SHARE_ACCESS uses RENAME_NOTEBOOK (s0tc2d) with different params
 
     # Additional notebook operations
-    LIST_FEATURED_NOTEBOOKS = "nS9Qlc"
     REMOVE_RECENTLY_VIEWED = "fejl7e"
-    NOTEBOOK_ANALYTICS = "AUrzMb"
 
 
 class StudioContentType(int, Enum):

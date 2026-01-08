@@ -34,10 +34,7 @@ class TestSectionedHelp:
         assert "delete" in result.output
         assert "rename" in result.output
         assert "share" in result.output
-        assert "featured" in result.output
-        # summary and analytics were moved from Insights to Notebooks
         assert "summary" in result.output
-        assert "analytics" in result.output
 
     def test_help_shows_chat_section(self, runner):
         """Verify Chat section appears with expected commands."""
@@ -107,7 +104,7 @@ class TestSectionedHelpOrder:
 
         output = result.output
 
-        # Find positions of key sections (Insights removed, summary/analytics moved to Notebooks)
+        # Find positions of key sections
         session_pos = output.find("Session:")
         notebooks_pos = output.find("Notebooks:")
         chat_pos = output.find("Chat:")

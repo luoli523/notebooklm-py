@@ -141,7 +141,7 @@ def patch_main_cli_client():
     """Create a context manager that patches NotebookLMClient in CLI command modules.
 
     After refactoring, top-level commands are in separate modules:
-    - notebook.py: list, create, delete, rename, share, featured, summary, analytics
+    - notebook.py: list, create, delete, rename, share, summary
     - chat.py: ask, configure, history
     - session.py: use
 

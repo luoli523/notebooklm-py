@@ -314,67 +314,6 @@ class TestNotebooksAPIAdditional:
         assert "summary" in result.lower()
 
     @pytest.mark.asyncio
-    async def test_get_analytics(
-        self,
-        auth_tokens,
-        httpx_mock: HTTPXMock,
-        build_rpc_response,
-    ):
-        """Test getting analytics for notebook."""
-        response = build_rpc_response(
-            "AUrzMb",
-            [10, 5, 3],  # views, edits, shares
-        )
-        httpx_mock.add_response(content=response.encode())
-
-        async with NotebookLMClient(auth_tokens) as client:
-            result = await client.notebooks.get_analytics("nb_123")
-
-        assert result is not None
-        request = httpx_mock.get_request()
-        assert "AUrzMb" in str(request.url)
-
-    @pytest.mark.asyncio
-    async def test_list_featured_basic(
-        self,
-        auth_tokens,
-        httpx_mock: HTTPXMock,
-        build_rpc_response,
-    ):
-        """Test listing featured notebooks with default params."""
-        response = build_rpc_response(
-            "nS9Qlc",  # LIST_FEATURED_NOTEBOOKS
-            [[["featured_nb_1", "Featured Title", "icon"], ["featured_nb_2", "Another Featured", "icon"]]],
-        )
-        httpx_mock.add_response(content=response.encode())
-
-        async with NotebookLMClient(auth_tokens) as client:
-            result = await client.notebooks.list_featured()
-
-        assert result is not None
-        request = httpx_mock.get_request()
-        assert "nS9Qlc" in str(request.url)
-
-    @pytest.mark.asyncio
-    async def test_list_featured_with_pagination(
-        self,
-        auth_tokens,
-        httpx_mock: HTTPXMock,
-        build_rpc_response,
-    ):
-        """Test listing featured notebooks with pagination."""
-        response = build_rpc_response(
-            "nS9Qlc",  # LIST_FEATURED_NOTEBOOKS
-            [[["featured_nb_1", "Featured", "icon"]], "next_page_token"],
-        )
-        httpx_mock.add_response(content=response.encode())
-
-        async with NotebookLMClient(auth_tokens) as client:
-            result = await client.notebooks.list_featured(page_size=5, page_token="token123")
-
-        assert result is not None
-
-    @pytest.mark.asyncio
     async def test_remove_from_recent(
         self,
         auth_tokens,

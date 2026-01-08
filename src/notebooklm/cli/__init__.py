@@ -9,7 +9,7 @@ Command groups are organized into separate modules:
 - download.py: Download commands
 - note.py: Note management commands
 - session.py: Session and context commands (login, use, status, clear)
-- notebook.py: Notebook management commands (list, create, delete, rename, share, featured, summary, analytics)
+- notebook.py: Notebook management commands (list, create, delete, rename, share, summary)
 - chat.py: Chat commands (ask, configure, history)
 
 Re-exports from helpers for backward compatibility with tests.

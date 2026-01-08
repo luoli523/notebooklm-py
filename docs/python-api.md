@@ -186,8 +186,6 @@ class NotebookLMClient:
 | `get_description(notebook_id)` | `notebook_id: str` | `NotebookDescription` | Get AI summary and topics |
 | `get_summary(notebook_id)` | `notebook_id: str` | `str` | Get raw summary text |
 | `share(notebook_id, settings=None)` | `notebook_id: str, settings: dict` | `Any` | Share notebook with settings |
-| `get_analytics(notebook_id)` | `notebook_id: str` | `Any` | Get notebook analytics/metadata |
-| `list_featured(page_size=10, page_token=None)` | `page_size: int, page_token: str` | `Any` | List featured/public notebooks |
 | `remove_from_recent(notebook_id)` | `notebook_id: str` | `None` | Remove from recently viewed |
 | `get_raw(notebook_id)` | `notebook_id: str` | `Any` | Get raw API response data |
 
@@ -214,12 +212,6 @@ print(summary)
 
 # Share a notebook
 await client.notebooks.share(nb.id, settings={"public": True})
-
-# Get analytics for a notebook
-analytics = await client.notebooks.get_analytics(nb.id)
-
-# Browse featured/public notebooks
-featured = await client.notebooks.list_featured(page_size=20)
 ```
 
 **get_summary vs get_description:**

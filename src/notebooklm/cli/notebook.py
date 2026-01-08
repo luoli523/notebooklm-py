@@ -6,9 +6,7 @@ Commands:
     delete     Delete a notebook
     rename     Rename a notebook
     share      Configure notebook sharing
-    featured   List featured/public notebooks
     summary    Get notebook summary with AI-generated insights
-    analytics  Get notebook analytics
 """
 
 import click
@@ -209,33 +207,6 @@ def register_notebook_commands(cli):
 
         return _run()
 
-    @cli.command("featured")
-    @click.option("--limit", "-n", default=20, help="Number of notebooks")
-    @with_client
-    def featured_cmd(ctx, limit, client_auth):
-        """List featured/public notebooks."""
-        async def _run():
-            async with NotebookLMClient(client_auth) as client:
-                notebooks = await client.notebooks.list_featured(page_size=limit)
-
-                if not notebooks:
-                    console.print("[yellow]No featured notebooks found[/yellow]")
-                    return
-
-                table = Table(title="Featured Notebooks")
-                table.add_column("ID", style="cyan")
-                table.add_column("Title", style="green")
-
-                for nb in notebooks:
-                    if isinstance(nb, list) and len(nb) > 0:
-                        table.add_row(
-                            str(nb[0] or "-"), str(nb[1] if len(nb) > 1 else "-")
-                        )
-
-                console.print(table)
-
-        return _run()
-
     @cli.command("summary")
     @click.option(
         "-n",
@@ -272,33 +243,5 @@ def register_notebook_commands(cli):
                             console.print(f"  {i}. {topic.question}")
                 else:
                     console.print("[yellow]No summary available[/yellow]")
-
-        return _run()
-
-    @cli.command("analytics")
-    @click.option(
-        "-n",
-        "--notebook",
-        "notebook_id",
-        default=None,
-        help="Notebook ID (uses current if not set). Supports partial IDs.",
-    )
-    @with_client
-    def analytics_cmd(ctx, notebook_id, client_auth):
-        """Get notebook analytics.
-
-        NOTEBOOK_ID supports partial matching (e.g., 'abc' matches 'abc123...').
-        """
-        notebook_id = require_notebook(notebook_id)
-
-        async def _run():
-            async with NotebookLMClient(client_auth) as client:
-                resolved_id = await resolve_notebook_id(client, notebook_id)
-                analytics = await client.notebooks.get_analytics(resolved_id)
-                if analytics:
-                    console.print("[bold cyan]Analytics:[/bold cyan]")
-                    console.print(analytics)
-                else:
-                    console.print("[yellow]No analytics available[/yellow]")
 
         return _run()

@@ -176,25 +176,6 @@ class NotebooksAPI:
 
         return NotebookDescription(summary=summary, suggested_topics=suggested_topics)
 
-    async def list_featured(
-        self, page_size: int = 10, page_token: Optional[str] = None
-    ) -> Any:
-        """List featured/public notebooks.
-
-        Args:
-            page_size: Number of notebooks per page.
-            page_token: Token for pagination.
-
-        Returns:
-            Raw response data with featured notebooks.
-        """
-        params = [page_size, page_token]
-        return await self._core.rpc_call(
-            RPCMethod.LIST_FEATURED_NOTEBOOKS,
-            params,
-            allow_null=True,
-        )
-
     async def remove_from_recent(self, notebook_id: str) -> None:
         """Remove a notebook from the recently viewed list.
 
@@ -290,19 +271,3 @@ class NotebooksAPI:
         if artifact_id:
             return f"{base_url}?artifactId={artifact_id}"
         return base_url
-
-    async def get_analytics(self, notebook_id: str) -> Any:
-        """Get analytics and metadata for a notebook.
-
-        Args:
-            notebook_id: The notebook ID.
-
-        Returns:
-            Analytics data for the notebook.
-        """
-        params = [notebook_id]
-        return await self._core.rpc_call(
-            RPCMethod.NOTEBOOK_ANALYTICS,
-            params,
-            source_path=f"/notebook/{notebook_id}",
-        )
