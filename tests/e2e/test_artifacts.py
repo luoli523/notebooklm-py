@@ -78,11 +78,7 @@ class TestFlashcardsGeneration:
 @requires_auth
 @pytest.mark.e2e
 class TestInfographicGeneration:
-    """Infographic generation tests.
-
-    Note: These tests may fail due to API rate limiting or quota restrictions.
-    Infographic generation is documented as unreliable in E2E tests.
-    """
+    """Infographic generation tests."""
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -132,11 +128,7 @@ class TestInfographicGeneration:
 @requires_auth
 @pytest.mark.e2e
 class TestSlideDeckGeneration:
-    """Slide deck generation tests.
-
-    Note: These tests may fail due to API rate limiting or quota restrictions.
-    Slide deck generation is documented as unreliable in E2E tests.
-    """
+    """Slide deck generation tests."""
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -148,7 +140,6 @@ class TestSlideDeckGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.xfail(reason="Slide deck API may be rate-limited or quota-restricted")
     async def test_generate_slide_deck_detailed(
         self, client, test_notebook_id, created_artifacts, cleanup_artifacts
     ):
@@ -162,7 +153,6 @@ class TestSlideDeckGeneration:
 
     @pytest.mark.asyncio
     @pytest.mark.slow
-    @pytest.mark.xfail(reason="Slide deck API may be rate-limited or quota-restricted")
     async def test_generate_slide_deck_presenter_short(
         self, client, test_notebook_id, created_artifacts, cleanup_artifacts
     ):
@@ -177,11 +167,7 @@ class TestSlideDeckGeneration:
 @requires_auth
 @pytest.mark.e2e
 class TestDataTableGeneration:
-    """Data table generation tests.
-
-    Note: These tests may fail due to API rate limiting or quota restrictions.
-    Data table generation is documented as unreliable in E2E tests.
-    """
+    """Data table generation tests."""
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -212,8 +198,7 @@ class TestArtifactPolling:
     async def test_poll_studio_status(self, client, test_notebook_id):
         result = await client.artifacts.generate_quiz(test_notebook_id)
         assert result is not None
-        if not result.task_id:
-            pytest.skip("Quiz generation failed (rate limiting or no sources)")
+        assert result.task_id, "Quiz generation should return a task_id"
 
         await asyncio.sleep(2)
         status = await client.artifacts.poll_status(test_notebook_id, result.task_id)
@@ -296,8 +281,7 @@ class TestArtifactMutations:
         # Create a quiz artifact to delete
         result = await client.artifacts.generate_quiz(temp_notebook.id)
         assert result is not None
-        if not result.task_id:
-            pytest.skip("Quiz generation failed (rate limiting or no sources)")
+        assert result.task_id, "Quiz generation should return a task_id"
         artifact_id = result.task_id
 
         # Wait briefly for creation
@@ -319,8 +303,7 @@ class TestArtifactMutations:
         # Create a quiz artifact to rename
         result = await client.artifacts.generate_quiz(temp_notebook.id)
         assert result is not None
-        if not result.task_id:
-            pytest.skip("Quiz generation failed (rate limiting or no sources)")
+        assert result.task_id, "Quiz generation should return a task_id"
         artifact_id = result.task_id
 
         # Wait for creation

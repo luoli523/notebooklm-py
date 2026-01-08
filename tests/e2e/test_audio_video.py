@@ -6,11 +6,7 @@ from notebooklm import AudioFormat, AudioLength, VideoFormat, VideoStyle
 @requires_auth
 @pytest.mark.e2e
 class TestAudioGeneration:
-    """Audio generation tests.
-
-    Note: These tests may fail due to API rate limiting or quota restrictions.
-    Audio generation is documented as unreliable in E2E tests.
-    """
+    """Audio generation tests."""
 
     @pytest.mark.asyncio
     @pytest.mark.slow
@@ -81,11 +77,7 @@ class TestAudioGeneration:
 @requires_auth
 @pytest.mark.e2e
 class TestVideoGeneration:
-    """Video generation tests.
-
-    Note: These tests may fail due to API rate limiting or quota restrictions.
-    Video generation is documented as unreliable in E2E tests.
-    """
+    """Video generation tests."""
 
     @pytest.mark.asyncio
     @pytest.mark.slow
