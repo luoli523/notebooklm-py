@@ -18,9 +18,9 @@ notebooklm list           # Verify authentication works
 
 If commands fail with authentication errors, re-run `notebooklm login`.
 
-### CI/CD and Multiple Accounts
+### CI/CD, Multiple Accounts, and Parallel Agents
 
-For automated environments or multiple accounts, use environment variables:
+For automated environments, multiple accounts, or parallel agent workflows:
 
 | Variable | Purpose |
 |----------|---------|
@@ -30,6 +30,13 @@ For automated environments or multiple accounts, use environment variables:
 **CI/CD setup:** Set `NOTEBOOKLM_AUTH_JSON` from a secret containing your `storage_state.json` contents.
 
 **Multiple accounts:** Use different `NOTEBOOKLM_HOME` directories per account.
+
+**Parallel agents:** The CLI stores notebook context in a shared file (`~/.notebooklm/context.json`). Multiple concurrent agents using `notebooklm use` can overwrite each other's context.
+
+**Solutions for parallel workflows:**
+1. **Always use explicit `-n` flag** (recommended): Pass `-n <notebook_id>` to every command instead of relying on `use`
+2. **Per-agent isolation:** Set unique `NOTEBOOKLM_HOME` per agent: `export NOTEBOOKLM_HOME=/tmp/agent-$ID`
+3. **Use full UUIDs:** Avoid partial IDs in automation (they can become ambiguous)
 
 ## Agent Setup Verification
 
@@ -61,7 +68,7 @@ Before starting workflows, verify the CLI is ready:
 - `notebooklm source wait` - wait for source processing (in subagent context)
 - `notebooklm research status` - check research status
 - `notebooklm research wait` - wait for research (in subagent context)
-- `notebooklm use <id>` - set context
+- `notebooklm use <id>` - set context (⚠️ SINGLE-AGENT ONLY - use `-n` flag in parallel workflows)
 - `notebooklm create` - create notebook
 - `notebooklm ask "..."` - chat queries
 - `notebooklm source add` - add sources
@@ -93,6 +100,7 @@ Before starting workflows, verify the CLI is ready:
 | Check research status | `notebooklm research status` |
 | Wait for research | `notebooklm research wait --import-all` |
 | Chat | `notebooklm ask "question"` |
+| Chat (new conversation) | `notebooklm ask "question" --new` |
 | Generate podcast | `notebooklm generate audio "instructions"` |
 | Generate video | `notebooklm generate video "instructions"` |
 | Generate quiz | `notebooklm generate quiz` |
@@ -102,7 +110,9 @@ Before starting workflows, verify the CLI is ready:
 | Download video | `notebooklm download video ./output.mp4` |
 | Delete notebook | `notebooklm notebook delete <id>` |
 
-**Partial IDs:** Use first 6+ characters of UUIDs. Must be unique prefix (fails if ambiguous). Works for: `use`, `delete`, `wait` commands.
+**Parallel safety:** Most commands accept `-n <notebook_id>` to specify the target notebook explicitly. Use this in parallel/multi-agent workflows instead of `notebooklm use`. For chat, use `--new` to start fresh conversations (avoids conversation ID conflicts).
+
+**Partial IDs:** Use first 6+ characters of UUIDs. Must be unique prefix (fails if ambiguous). Works for: `use`, `delete`, `wait` commands. For automation, prefer full UUIDs to avoid ambiguity.
 
 ## Command Output Formats
 
@@ -166,9 +176,9 @@ When user wants full automation (generate and download when ready):
 4. **Spawn a background agent** using Task tool:
    ```
    Task(
-     prompt="Wait for artifact {artifact_id} to complete, then download to ./podcast.mp3.
-             Use: notebooklm artifact wait {artifact_id} --timeout 600
-             Then: notebooklm download audio ./podcast.mp3 -a {artifact_id}",
+     prompt="Wait for artifact {artifact_id} in notebook {notebook_id} to complete, then download.
+             Use: notebooklm artifact wait {artifact_id} -n {notebook_id} --timeout 600
+             Then: notebooklm download audio ./podcast.mp3 -a {artifact_id} -n {notebook_id}",
      subagent_type="general-purpose"
    )
    ```
@@ -217,8 +227,8 @@ When adding multiple sources and needing to wait for processing before chat/gene
 2. **Spawn a background agent** to wait for all sources:
    ```
    Task(
-     prompt="Wait for sources {source_ids} to be ready.
-             For each: notebooklm source wait {id} --timeout 120
+     prompt="Wait for sources {source_ids} in notebook {notebook_id} to be ready.
+             For each: notebooklm source wait {id} -n {notebook_id} --timeout 120
              Report when all ready or if any fail.",
      subagent_type="general-purpose"
    )
@@ -241,8 +251,8 @@ Deep research finds and analyzes web sources on a topic:
 3. **Spawn a background agent** to wait and import:
    ```
    Task(
-     prompt="Wait for research to complete and import sources.
-             Use: notebooklm research wait --import-all --timeout 300
+     prompt="Wait for research in notebook {notebook_id} to complete and import sources.
+             Use: notebooklm research wait -n {notebook_id} --import-all --timeout 300
              Report how many sources were imported.",
      subagent_type="general-purpose"
    )
