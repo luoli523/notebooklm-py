@@ -29,12 +29,16 @@ import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urljoin, urlparse, urlunparse
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from notebooklm import NotebookLMClient
 
 LANG_SEGMENT_RE = re.compile(r"^[a-z]{2}(?:-[A-Z]{2})?$")
 DEFAULT_REPORT = "import_learning_report.json"
+DEFAULT_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0 Safari/537.36",
+    "Accept": "application/xml,text/xml,text/html;q=0.9,*/*;q=0.8",
+}
 
 
 def parse_csv_prefixes(raw: str | None) -> list[str]:
@@ -112,7 +116,8 @@ def keep_for_learning(path_tail: str, keep_prefixes: list[str], skip_prefixes: l
 
 
 def load_sitemap_urls(sitemap_url: str) -> list[str]:
-    xml = urlopen(sitemap_url, timeout=60).read()
+    req = Request(sitemap_url, headers=DEFAULT_HEADERS)
+    xml = urlopen(req, timeout=60).read()
     root = ET.fromstring(xml)
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
 
@@ -149,7 +154,7 @@ def discover_sitemap_from_seed(seed_url: str) -> str:
     # 1) robots.txt hints
     robots = urljoin(base, "/robots.txt")
     try:
-        txt = urlopen(robots, timeout=30).read().decode("utf-8", errors="ignore")
+        txt = urlopen(Request(robots, headers=DEFAULT_HEADERS), timeout=30).read().decode("utf-8", errors="ignore")
         for line in txt.splitlines():
             if line.lower().startswith("sitemap:"):
                 sm = line.split(":", 1)[1].strip()
