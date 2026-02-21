@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# One-command wrapper for learning notebook creation/import.
+# Example:
+#   scripts/nlm-learn-notebook \
+#     --notebook "OpenClaw" \
+#     --sitemap "https://docs.openclaw.ai/sitemap.xml" \
+#     --prefer-lang en \
+#     --keep-prefix "/start,/concepts,/gateway,/tools,/cli,/providers,/channels,/nodes,/platforms,/automation,/install,/help,/web" \
+#     --skip-prefix "/reference/templates,/experiments,/plugins" \
+#     --max-import 220
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PYTHON_BIN="${PYTHON_BIN:-$SCRIPT_DIR/../.venv/bin/python}"
+
+if [[ ! -x "$PYTHON_BIN" ]]; then
+  PYTHON_BIN="python3"
+fi
+
+exec "$PYTHON_BIN" "$SCRIPT_DIR/import_openclaw_docs_urls.py" "$@"
