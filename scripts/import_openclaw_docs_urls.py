@@ -28,7 +28,7 @@ import re
 import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.request import urlopen
 
 from notebooklm import NotebookLMClient
@@ -53,7 +53,9 @@ def parse_csv_prefixes(raw: str | None) -> list[str]:
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Create/import a learning-focused NotebookLM knowledge notebook from sitemap")
     ap.add_argument("--notebook", required=True, help="Notebook title")
-    ap.add_argument("--sitemap", required=True, help="Sitemap XML URL")
+    source_group = ap.add_mutually_exclusive_group(required=True)
+    source_group.add_argument("--sitemap", help="Sitemap XML URL")
+    source_group.add_argument("--seed-url", help="Any doc URL on the target site; tool will auto-discover sitemap")
     ap.add_argument("--prefer-lang", default="en", help="Preferred language prefix (default: en)")
     ap.add_argument("--keep-prefix", default="", help="Comma-separated path prefixes to keep (e.g. /docs,/guides)")
     ap.add_argument("--skip-prefix", default="", help="Comma-separated path prefixes to skip")
@@ -113,7 +115,69 @@ def load_sitemap_urls(sitemap_url: str) -> list[str]:
     xml = urlopen(sitemap_url, timeout=60).read()
     root = ET.fromstring(xml)
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
-    return [e.text.strip() for e in root.findall('.//sm:url/sm:loc', ns) if e.text and e.text.strip()]
+
+    # support both sitemapindex and urlset by collecting all <loc>
+    locs = [e.text.strip() for e in root.findall('.//sm:loc', ns) if e.text and e.text.strip()]
+    if not locs:
+        return []
+
+    # if it's sitemap index, recursively load nested sitemaps
+    tag = root.tag.lower()
+    if tag.endswith("sitemapindex"):
+        out: list[str] = []
+        seen = set()
+        for sm in locs:
+            try:
+                for u in load_sitemap_urls(sm):
+                    if u not in seen:
+                        seen.add(u)
+                        out.append(u)
+            except Exception:
+                continue
+        return out
+
+    return locs
+
+
+def discover_sitemap_from_seed(seed_url: str) -> str:
+    p = urlparse(seed_url)
+    if not p.scheme or not p.netloc:
+        raise ValueError(f"invalid --seed-url: {seed_url}")
+
+    base = f"{p.scheme}://{p.netloc}"
+
+    # 1) robots.txt hints
+    robots = urljoin(base, "/robots.txt")
+    try:
+        txt = urlopen(robots, timeout=30).read().decode("utf-8", errors="ignore")
+        for line in txt.splitlines():
+            if line.lower().startswith("sitemap:"):
+                sm = line.split(":", 1)[1].strip()
+                if sm:
+                    # validate reachable
+                    _ = load_sitemap_urls(sm)
+                    return sm
+    except Exception:
+        pass
+
+    # 2) conventional locations
+    candidates = [
+        urljoin(base, "/sitemap.xml"),
+        urljoin(base, "/sitemap_index.xml"),
+        urljoin(base, "/sitemap-index.xml"),
+        urljoin(base, "/wp-sitemap.xml"),
+    ]
+    for sm in candidates:
+        try:
+            urls = load_sitemap_urls(sm)
+            if urls:
+                return sm
+        except Exception:
+            continue
+
+    raise RuntimeError(
+        f"No sitemap found from seed URL {seed_url}. Provide --sitemap explicitly or use a different seed URL."
+    )
 
 
 def curate_urls(urls: list[str], prefer_lang: str, keep_prefixes: list[str], skip_prefixes: list[str], max_import: int) -> tuple[list[str], Counter, dict[str, str]]:
@@ -170,7 +234,11 @@ async def run() -> int:
     skip_prefixes = parse_csv_prefixes(args.skip_prefix)
     report_path = Path(args.report).expanduser().resolve()
 
-    raw_urls = load_sitemap_urls(args.sitemap)
+    sitemap_url = args.sitemap or discover_sitemap_from_seed(args.seed_url)
+    if args.seed_url and not args.sitemap:
+        print(f"discovered sitemap: {sitemap_url}")
+
+    raw_urls = load_sitemap_urls(sitemap_url)
     curated, stats, reasons = curate_urls(
         raw_urls,
         prefer_lang=args.prefer_lang,
@@ -225,7 +293,8 @@ async def run() -> int:
             await asyncio.gather(*(worker(u) for u in todo))
 
         report = {
-            "sitemap": args.sitemap,
+            "sitemap": sitemap_url,
+            "seed_url": args.seed_url,
             "notebook": args.notebook,
             "notebook_id": nb.id,
             "prefer_lang": args.prefer_lang,
