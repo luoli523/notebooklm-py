@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""Prune old NotebookLM sources/artifacts by age.
+
+Keep only items created within N days; delete older ones.
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+from dataclasses import asdict, dataclass
+from datetime import datetime, timedelta, timezone
+
+from notebooklm import NotebookLMClient
+
+
+@dataclass
+class PruneResult:
+    notebook: str
+    notebook_id: str
+    days: int
+    cutoff_iso: str
+    dry_run: bool
+    sources_total: int
+    sources_kept: int
+    sources_deleted: int
+    sources_skipped_no_timestamp: int
+    artifacts_total: int
+    artifacts_kept: int
+    artifacts_deleted: int
+    artifacts_skipped_no_timestamp: int
+
+
+def parse_args() -> argparse.Namespace:
+    ap = argparse.ArgumentParser(description="Delete old sources/artifacts from a notebook by age")
+    ap.add_argument("--notebook", required=True, help="Notebook title (exact match)")
+    ap.add_argument("--days", required=True, type=int, help="Keep only data from last N days")
+    ap.add_argument("--dry-run", action="store_true", help="Preview only; do not delete")
+    return ap.parse_args()
+
+
+def is_older_than(dt: datetime | None, cutoff: datetime) -> bool:
+    if dt is None:
+        return False
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt < cutoff
+
+
+async def run() -> int:
+    args = parse_args()
+    if args.days < 0:
+        raise SystemExit("--days must be >= 0")
+
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=args.days)
+
+    async with await NotebookLMClient.from_storage() as client:
+        notebooks = await client.notebooks.list()
+        nb = next((n for n in notebooks if n.title == args.notebook), None)
+        if not nb:
+            raise SystemExit(f"Notebook not found: {args.notebook}")
+
+        sources = await client.sources.list(nb.id)
+        artifacts = await client.artifacts.list(nb.id)
+
+        src_del = [s for s in sources if is_older_than(getattr(s, "created_at", None), cutoff)]
+        art_del = [a for a in artifacts if is_older_than(getattr(a, "created_at", None), cutoff)]
+
+        src_skip_no_ts = sum(1 for s in sources if getattr(s, "created_at", None) is None)
+        art_skip_no_ts = sum(1 for a in artifacts if getattr(a, "created_at", None) is None)
+
+        if args.dry_run:
+            for s in src_del[:20]:
+                print(f"[DRY-RUN] delete source {s.id} | {s.title or '-'} | {s.created_at}")
+            if len(src_del) > 20:
+                print(f"... {len(src_del)-20} more sources")
+
+            for a in art_del[:20]:
+                print(f"[DRY-RUN] delete artifact {a.id} | {a.title or '-'} | {a.created_at}")
+            if len(art_del) > 20:
+                print(f"... {len(art_del)-20} more artifacts")
+        else:
+            for s in src_del:
+                await client.sources.delete(nb.id, s.id)
+            for a in art_del:
+                await client.artifacts.delete(nb.id, a.id)
+
+        result = PruneResult(
+            notebook=nb.title,
+            notebook_id=nb.id,
+            days=args.days,
+            cutoff_iso=cutoff.isoformat(),
+            dry_run=bool(args.dry_run),
+            sources_total=len(sources),
+            sources_kept=len(sources) - len(src_del),
+            sources_deleted=len(src_del),
+            sources_skipped_no_timestamp=src_skip_no_ts,
+            artifacts_total=len(artifacts),
+            artifacts_kept=len(artifacts) - len(art_del),
+            artifacts_deleted=len(art_del),
+            artifacts_skipped_no_timestamp=art_skip_no_ts,
+        )
+
+    print("RESULT")
+    for k, v in asdict(result).items():
+        print(f"{k}={v}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(asyncio.run(run()))
